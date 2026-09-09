@@ -1,0 +1,231 @@
+@import url('/frontend/css/themesAndOthers.css');
+
+* {
+  box-sizing: border-box
+}
+
+body {
+  margin: 0;
+  background: var(--main);
+  color: var(--text);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.feed {
+  max-width: 680px;
+  margin: auto;
+  padding: 10px;
+}
+
+.feedCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px
+}
+
+.postHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+h3{
+  word-wrap: break-word;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #6495ed, #ee32ee);
+  color: #fff;
+  font-weight: bold
+}
+
+.authorMeta {
+  display: flex;
+  flex-direction: column;
+  flex: 1
+}
+
+.authorMeta small {
+  color: var(--muted)
+}
+
+.editBtn {
+  border: 0;
+  background: transparent;
+  color: var(--theme-2);
+  font-weight: bold
+}
+
+.feedCard h3 {
+  margin: 15px 0 6px
+}
+
+.postContent {
+  line-height: 1.5;
+  margin: 6px 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.postImage {
+  width: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-top: 10px
+}
+
+.postActions {
+  display: flex;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 8px;
+  align-items: center;
+}
+
+.postActions button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.postActions button:hover,
+.postActions .reacted {
+  background: #ffebf0;
+  color: #e91e63
+}
+
+.postActions .saved {
+  background: #eef4ff
+}
+
+.comments {
+  margin-top: 8px
+}
+
+.hidden {
+  display: none
+}
+
+.comment {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px
+}
+
+.commentForm {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px
+}
+
+.commentForm input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 9px;
+  background: var(--input);
+  color: var(--text)
+}
+
+.commentForm button {
+  border: 0;
+  border-radius: 20px;
+  padding: 8px 12px;
+  background: var(--theme-2);
+  color: white;
+}
+
+.emptyState {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 15px
+}
+
+.pollOptions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px
+}
+
+.pollOption {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--border);
+  background: var(--input);
+  color: var(--text);
+  border-radius: 8px;
+  text-align: left;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px
+}
+
+.pollOption .pollBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #6495ed33;
+  z-index: 0
+}
+
+.pollOption>*:not(.pollBar) {
+  position: relative;
+  z-index: 1
+}
+
+.pollLabel {
+  flex: 1
+}
+
+.pollOption.chosen {
+  border: 2px solid var(--theme-2)
+}
+
+.pollTotal {
+  display: block;
+  color: var(--muted);
+  margin-top: 7px
+}
+
+.moreBtn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  padding: 0 5px;
+  cursor: pointer
+}
+
+.muted {
+  color: var(--muted)
+}
+
+.postActions button {
+  transition: transform .12s
+}
+
+.postActions button:active {
+  transform: scale(.94)
+}

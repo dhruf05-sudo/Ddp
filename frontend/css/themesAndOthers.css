@@ -1,0 +1,36 @@
+:root {
+  --theme-1: #ee32ee;
+  --theme-2: #6495ed;
+  --main: #fff;
+  --text: #111;
+  --card: #fff;
+  --border: #ddd;
+  --muted: #777;
+  --icons: #111;
+  --input: #f6f6f6;
+}
+
+html.dark {
+  --main: #121212;
+  --text: #f5f5f5;
+  --card: #202020;
+  --border: #3a3a3a;
+  --muted: #aaa;
+  --icons: #f5f5f5;
+  --input: #292929;
+}
+
+* {
+  box-sizing: border-box
+}
+
+body {
+  background: var(--main);
+  color: var(--text)
+}
+
+button,
+input,
+textarea {
+  font: inherit
+}

@@ -1,0 +1,5 @@
+
+@import url('/frontend/css/themesAndOthers.css');
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:var(--main);color:var(--text);display:grid;place-items:center;font-family:'Segoe UI',sans-serif}
+form{width:min(92%,400px);padding:24px;border:1px solid var(--border);border-radius:18px;background:var(--card);box-shadow:0 5px 25px #0001}
+h1{margin-bottom:20px}.inputs{display:grid;gap:12px}.inputs input{padding:13px;border:1px solid var(--border);border-radius:9px;background:var(--input);color:var(--text);outline:0}.submit button,.guestBtn{width:100%;padding:13px;border:0;border-radius:25px;background:#6495ed;color:#fff;text-align:center;font-weight:bold;cursor:pointer}.submit{display:grid;gap:12px}fieldset{border:0;border-top:1px solid var(--border);padding-top:15px}.guestLink{text-decoration:none}.createAcc{display:flex;gap:5px;justify-content:center;margin-top:18px}.goTo{color:#6495ed}

@@ -1,0 +1,212 @@
+@import url('/frontend/css/themesAndOthers.css');
+
+* {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--main);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden:
+  padding: 0;
+}
+
+a {
+  color: inherit
+}
+
+header {
+  padding: 10px 15px;
+  box-shadow: 0 0 10px #0001;
+  background: var(--main);
+  flex-shrink: 0;
+  z-index: 999;
+}
+
+.headerBox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center
+}
+
+.headerTxt {
+  background: linear-gradient(90deg, #6495ed, #ee32ee);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent
+}
+
+.right {
+  display: flex;
+  gap: 12px;
+  align-items: center
+}
+
+.right a {
+  text-decoration: none
+}
+
+.postBox {
+  padding: 8px 5px
+}
+
+.innerPostBox {
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  overflow: hidden
+}
+
+.postTxt {
+  display: block;
+  padding: 11px;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid #ccc;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+main {
+  flex: 1;
+  overflow: auto
+}
+
+iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.btmNav {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  box-shadow: 0 0 10px #0002;
+  background: var(--main);
+  flex-shrink: 0
+}
+
+.navIcons {
+  text-decoration: none;
+  color: var(--text);
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 80px
+}
+
+.navIcons.active {
+  font-weight: 700;
+  border-top: 2px solid var(--theme-2)
+}
+
+.navIcon {
+  font-size: 20px
+}
+
+.navText {
+  font-size: 11px
+}
+
+.denbot-ico {
+  position: fixed;
+  right: 15px;
+  bottom: 75px;
+  background: var(--main);
+  border-radius: 50%;
+  padding: 8px;
+  box-shadow: 0 3px 15px #0002
+}
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.search-bar input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--input);
+  color: var(--text);
+  outline: none
+}
+
+.search-bar button {
+  border: 0;
+  border-radius: 24px;
+  padding: 0 18px;
+  background: var(--theme-2);
+  color: #fff;
+  font-weight: 700
+}
+
+.settingsCard {
+  max-width: 650px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 18px
+}
+
+.settingsCard label {
+  display: block;
+  padding: 9px 0
+}
+
+.formHint {
+  color: var(--muted);
+  margin: -10px 0 18px
+}
+
+.notification {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 9px
+}
+
+.notification small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px
+}
+
+.notification.unread {
+  border-left: 4px solid var(--theme-2)
+}
+.chat-bot{
+  height: 100%;
+  width: 100%;
+}
+.ai-body{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+.ai-home{
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 20px;
+}
+.ai{
+  display: flex;
+  height: 100%;
+}
