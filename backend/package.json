@@ -1,0 +1,22 @@
+{
+  "name": "ddp-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express API for the Digital Debate Platform.",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.115.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1"
+  },
+  "keywords": []
+}
