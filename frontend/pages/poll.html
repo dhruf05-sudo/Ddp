@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/frontend/css/editor.css">
+  <title>Create poll</title>
+</head>
+
+<body>
+  <header>
+  <a href="/frontend/pages/create.html">
+    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
+  </a>
+    <h2>Create poll</h2><span></span>
+  </header>
+  <div class="mainPoll">
+    <form id="createPollForm" class="pollCard">
+      <textarea id="pollQuestion" class="topic" placeholder="Ask a question..." required></textarea>
+      <p class="hint">Choose 2–4 options. Polls do not support image uploads.</p>
+      <div id="pollOptions">
+        <div class="pollEditRow"><input name="option" maxlength="100" placeholder="Option 1" required><button type="button" class="removeOption">×</button></div>
+        <div class="pollEditRow"><input name="option" maxlength="100" placeholder="Option 2" required><button type="button" class="removeOption">×</button></div>
+      </div>
+      <button type="button" class="addOption" id="addOption">+ Add option</button>
+      <div class="gridBtn"><button class="shareBtn">Publish poll</button></div>
+    </form>
+  </div>
+  <script src="/frontend/js/app.js"></script>
+</body>
+
+</html>

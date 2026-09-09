@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/frontend/css/style.css">
+  <link rel="stylesheet" href="/frontend/css/paraSaPosts.css">
+  <title>Home</title>
+</head>
+
+<body data-nav="home">
+  <header>
+    <div class="headerBox">
+      <h1 class="headerTxt">DDP</h1>
+      <div class="right">
+        <a href="/frontend/pages/notif-settings/search.html" aria-label="Search">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
+            <path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z" />
+          </svg>
+        </a>
+        <a href="/frontend/pages/notif-settings/settings.html" aria-label="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="postBox"><a class="postTxt" href="/frontend/pages/create.html">What's on your mind?</a></div>
+  </header>
+  <main>
+    <div id="mgaPosts" class="feed"></div>
+    <div class="denbot-ico">
+      <a href="/frontend/pages/denbot.html" class="denbot-ico-svg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">
+          <defs>
+            <linearGradient id="sparkleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ee32ee;" /> <!-- green -->
+              <stop offset="60%" style="stop-color: #b8c0ff;" />
+              <stop offset="100%" style="stop-color: #6495ed;" /> <!-- blue -->
+            </linearGradient>
+          </defs>
+          <path fill="url(#sparkleGradient)" d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z" />
+        </svg>
+      </a>
+    </div>
+  </main>
+  <div id="nav"></div>
+  <script src="/frontend/js/app.js"></script>
+</body>
+
+</html>
+
