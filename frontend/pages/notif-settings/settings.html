@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/frontend/css/style.css">
+  <title>Settings</title>
+</head>
+
+<body>
+  <header>
+    <div class="headerBox">
+      <a href="/frontend/pages/home.html">
+        <span class="icon">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor" ><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
+        </span>
+      </a>
+      <h2>Settings</h2>
+      <span></span>
+    </div>
+  </header>
+  <main style="padding:18px">
+    <section class="settingsCard">
+      <h3>Appearance</h3>
+      <p style="color:var(--muted);margin:7px 0 15px"></p>
+      <label><input type="radio" name="appearance" data-appearance="light"> Light</label><br>
+      <label><input type="radio" name="appearance" data-appearance="dark"> Dark</label><br>
+      <label><input type="radio" name="appearance" data-appearance="system"> System</label>
+    </section>
+    <br><button id="logoutBtn" style="padding:12px 18px;border:0;border-radius:20px;background:#e55;color:#fff">Exit</button>
+  </main>
+  <script src="/frontend/js/app.js"></script>
+</body>
+
+</html>
