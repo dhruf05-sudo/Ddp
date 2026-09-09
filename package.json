@@ -1,0 +1,21 @@
+{
+  "name": "ddp-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Digital Debate Platform with a static frontend and Supabase-backed Express API.",
+  "main": "backend/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node backend/server.js",
+    "check": "node --check backend/server.js && node --check frontend/js/app.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.115.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1"
+  }
+}

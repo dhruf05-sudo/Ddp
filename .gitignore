@@ -1,0 +1,13 @@
+# Dependencies (Blocks node_modules everywhere)
+node_modules/
+
+# Environments and Secrets (Blocks all .env files everywhere)
+.env
+.env.*
+!.env.example
+
+# Local Databases / Data
+backend/data/
+
+# Logs
+*.log
