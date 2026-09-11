@@ -5,63 +5,56 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { createClient } = require('@supabase/supabase-js');
 
-// ==================================================
+// ========================================
 // ENVIRONMENT
-// ==================================================
+// ========================================
 
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({
+  path: path.join(__dirname, '.env')
+});
+
+dotenv.config({
+  path: path.join(__dirname, '..', '.env')
+});
+
+// ========================================
+// CONFIG
+// ========================================
 
 const app = express();
 
-const PORT = Number(process.env.PORT || 3000);
-const ROOT = path.join(__dirname, '..');
+const PORT =
+  Number(process.env.PORT) || 3000;
 
-const SUPABASE_URL = String(
-  process.env.SUPABASE_URL || ''
-).trim();
+const ROOT =
+  path.join(__dirname, '..');
 
-const SUPABASE_KEY = String(
+const SUPABASE_URL =
+  process.env.SUPABASE_URL;
+
+const SUPABASE_KEY =
   process.env.SUPABASE_SECRET_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  ''
-).trim();
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// ==================================================
-// LIMITS
-// ==================================================
+const configError =
+  !SUPABASE_URL ||
+  !SUPABASE_KEY ||
+  /^your-project-id/i.test(
+    String(SUPABASE_URL || '')
+  ) ||
+  /^your-project-id/i.test(
+    String(SUPABASE_KEY || '')
+  ) ||
+  /^sb_publishable_/i.test(
+    String(SUPABASE_KEY || '')
+  ) ||
+  /^sb_anon_/i.test(
+    String(SUPABASE_KEY || '')
+  );
 
-const MAX_IMAGE_CHARS = 4_000_000;
-const MAX_POST_CHARS = 10_000;
-const MAX_TOPIC_CHARS = 300;
-const MAX_OPTION_CHARS = 100;
-const MAX_COMMENT_CHARS = 300;
-const MAX_REPORT_CHARS = 500;
-const MAX_NAME_CHARS = 100;
-
-// ==================================================
+// ========================================
 // SUPABASE
-// ==================================================
-
-function configurationError() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return (
-      'Supabase is not configured. Set SUPABASE_URL and ' +
-      'SUPABASE_SECRET_KEY in Render environment variables.'
-    );
-  }
-
-  if (/^(sb_publishable_|sb_anon_)/i.test(SUPABASE_KEY)) {
-    return (
-      'The Supabase key is a publishable/anon key. ' +
-      'Use the server-only Secret key or legacy service_role key.'
-    );
-  }
-
-  return '';
-}
-
-const configError = configurationError();
+// ========================================
 
 let supabase = null;
 
@@ -78,13 +71,16 @@ if (!configError) {
   );
 }
 
-// ==================================================
+// ========================================
 // EXPRESS
-// ==================================================
+// ========================================
 
-app.disable('x-powered-by');
-
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true
+  })
+);
 
 app.use(
   express.json({
@@ -93,20 +89,28 @@ app.use(
 );
 
 app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '6mb'
+  })
+);
+
+// Serve frontend files.
+app.use(
   express.static(ROOT, {
     extensions: ['html']
   })
 );
 
-// ==================================================
+// ========================================
 // HELPERS
-// ==================================================
+// ========================================
 
 function uid() {
   return crypto.randomUUID();
 }
 
-function clean(value, max) {
+function clean(value, max = 5000) {
   return String(value ?? '')
     .trim()
     .slice(0, max);
@@ -114,336 +118,387 @@ function clean(value, max) {
 
 function getUserId(req) {
   return (
-    clean(
-      req.get('x-ddp-user-id') ||
-      req.get('x-user-id') ||
-      'guest',
-      100
-    ) || 'guest'
+    req.headers['x-ddp-user-id'] ||
+    req.headers['x-user-id'] ||
+    'guest'
   );
 }
 
 function getUserName(req) {
-  return (
-    clean(
-      req.get('x-ddp-user-name') ||
-      req.get('x-user-name') ||
-      'Guest',
-      MAX_NAME_CHARS
-    ) || 'Guest'
-  );
+  return clean(
+    req.headers['x-ddp-user-name'] ||
+    req.headers['x-user-name'] ||
+    'Anonymous',
+    100
+  ) || 'Anonymous';
 }
 
-function fail(res, status, message) {
+function fail(
+  res,
+  status,
+  message
+) {
   return res.status(status).json({
-    success: false,
     error: message
   });
 }
 
-function isUUID(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || '')
-  );
-}
-
 function requireSupabase(res) {
-  if (!supabase) {
-    return fail(
+  if (configError || !supabase) {
+    fail(
       res,
-      503,
-      configError || 'Database is unavailable.'
+      500,
+      'Supabase is not configured correctly on the server.'
     );
+
+    return false;
   }
 
   return true;
 }
 
-// ==================================================
-// MAPPERS
-// ==================================================
+function isUUID(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value)
+  );
+}
+
+// ========================================
+// COMMENT MAPPER
+// ========================================
 
 function mapComment(comment) {
+  if (!comment) {
+    return null;
+  }
+
   return {
     id: comment.id,
-    authorId: comment.author_id,
-    name: comment.author_name || 'Guest',
-    text: comment.text,
-    createdAt: comment.created_at,
-    updatedAt: comment.updated_at || null
+    authorId:
+      comment.author_id ??
+      comment.user_id ??
+      '',
+    name:
+      comment.author_name ??
+      comment.name ??
+      'Anonymous',
+    text:
+      comment.text ??
+      comment.content ??
+      '',
+    createdAt:
+      comment.created_at,
+    updatedAt:
+      comment.updated_at
   };
 }
 
+// ========================================
+// POST MAPPER
+// ========================================
+
 function mapPost(post, currentUserId) {
-  const reactions = Array.isArray(post.reactions)
-    ? post.reactions
-    : [];
+  const comments =
+    Array.isArray(post.comments)
+      ? post.comments
+          .map(mapComment)
+          .filter(Boolean)
+      : [];
 
-  const saves = Array.isArray(post.saves)
-    ? post.saves
-    : [];
+  const reactions =
+    Array.isArray(post.reactions)
+      ? post.reactions
+          .map(item =>
+            item.user_id
+          )
+          .filter(Boolean)
+      : [];
 
-  const votes = Array.isArray(post.votes)
-    ? post.votes
-    : [];
+  const saves =
+    Array.isArray(post.saves)
+      ? post.saves
+          .map(item =>
+            item.user_id
+          )
+          .filter(Boolean)
+      : [];
 
-  const rawOptions = Array.isArray(post.options)
-    ? post.options
-    : [];
+  const votes =
+    Array.isArray(post.votes)
+      ? post.votes
+      : [];
 
-  const voteCounts = rawOptions.map(() => 0);
+  const options =
+    Array.isArray(post.options)
+      ? post.options.map(
+          option => ({
+            text:
+              typeof option ===
+              'string'
+                ? option
+                : option.text ?? '',
+            votes: 0
+          })
+        )
+      : [];
 
   const voters = {};
 
-  for (const vote of votes) {
-    const optionIndex = Number(
-      vote.option_index
-    );
+  votes.forEach(vote => {
+    const userId =
+      vote.user_id;
+
+    const optionIndex =
+      Number(
+        vote.option_index
+      );
+
+    if (!userId) {
+      return;
+    }
+
+    voters[userId] =
+      optionIndex;
 
     if (
-      Number.isInteger(optionIndex) &&
-      optionIndex >= 0 &&
-      optionIndex < voteCounts.length
+      options[optionIndex]
     ) {
-      voteCounts[optionIndex] += 1;
-
-      voters[vote.user_id] = optionIndex;
+      options[optionIndex]
+        .votes++;
     }
-  }
+  });
 
-  const totalVotes = voteCounts.reduce(
-    (sum, count) => sum + count,
-    0
-  );
-
-  const options = rawOptions.map(
-    (option, index) => {
-      const text =
-        typeof option === 'string'
-          ? option
-          : clean(
-              option?.text,
-              MAX_OPTION_CHARS
-            );
-
-      const count = voteCounts[index];
-
-      return {
-        text,
-        votes: count,
-        percentage:
-          totalVotes > 0
-            ? Math.round(
-                (count / totalVotes) * 100
-              )
-            : 0
-      };
-    }
-  );
+  const reactionCount =
+    reactions.length;
 
   return {
     id: post.id,
 
-    type: post.type,
+    type:
+      post.type || 'post',
 
-    topic: post.topic || '',
+    topic:
+      post.topic || '',
 
-    content: post.content || '',
+    content:
+      post.content || '',
 
-    image: post.image || '',
+    image:
+      post.image || '',
 
-    authorId: post.author_id,
+    authorId:
+      post.author_id || '',
 
     authorName:
-      post.author_name || 'Guest',
+      post.author_name ||
+      'Anonymous',
 
-    createdAt: post.created_at,
+    createdAt:
+      post.created_at,
 
     updatedAt:
-      post.updated_at || null,
+      post.updated_at,
 
     options,
 
     voters,
 
-    reactions: reactions.map(
-      reaction => reaction.user_id
-    ),
+    reactions,
 
-    reactionCount: reactions.length,
+    reactionCount,
 
-    reacted: reactions.some(
-      reaction =>
-        reaction.user_id === currentUserId
-    ),
+    reacted:
+      reactions.includes(
+        currentUserId
+      ),
 
-    saved: saves.some(
-      save =>
-        save.user_id === currentUserId
-    ),
+    saved:
+      saves.includes(
+        currentUserId
+      ),
 
-    savedBy: saves.map(
-      save => save.user_id
-    ),
+    savedBy:
+      saves,
 
-    comments: (
-      Array.isArray(post.comments)
-        ? post.comments
-        : []
-    ).map(mapComment)
+    comments
   };
 }
 
-// ==================================================
+// ========================================
 // NOTIFICATIONS
-// ==================================================
+// ========================================
 
 async function createNotification({
   userId,
   actorId,
   type,
-  postId = null,
-  commentId = null,
+  postId,
+  commentId,
   message
 }) {
-  if (!supabase || !userId) {
+  if (
+    !supabase ||
+    !userId ||
+    userId === actorId
+  ) {
     return;
   }
 
-  try {
+  const { error } =
     await supabase
       .from('notifications')
       .insert({
         id: uid(),
         user_id: userId,
-        actor_id: actorId || null,
-        type,
-        post_id: postId,
-        comment_id: commentId,
-        message,
+        actor_id:
+          actorId || null,
+        type:
+          type || 'activity',
+        post_id:
+          postId || null,
+        comment_id:
+          commentId || null,
+        message:
+          clean(message, 500),
         read: false
       });
-  } catch (error) {
+
+  if (error) {
     console.error(
       'Notification error:',
-      error
+      error.message
     );
   }
 }
 
-// ==================================================
+// ========================================
 // GET POSTS
-// ==================================================
+// ========================================
 
 async function getPosts(
   currentUserId,
-  search = ''
+  query = ''
 ) {
-  let query = supabase
-    .from('posts')
-    .select(`
-      *,
-      comments:comments(
+  let request =
+    supabase
+      .from('posts')
+      .select(`
         id,
+        type,
+        topic,
+        content,
+        image,
         author_id,
         author_name,
-        text,
-        created_at
-      ),
-      reactions:post_reactions(
-        user_id
-      ),
-      saves:post_saves(
-        user_id
-      ),
-      votes:poll_votes(
-        user_id,
-        option_index
-      )
-    `)
-    .eq('hidden', false)
-    .order('created_at', {
-      ascending: false
-    });
+        created_at,
+        updated_at,
+        options,
+        hidden,
+        comments:comments(
+          id,
+          post_id,
+          author_id,
+          author_name,
+          text,
+          created_at,
+          updated_at
+        ),
+        reactions:post_reactions(
+          user_id
+        ),
+        saves:post_saves(
+          user_id
+        ),
+        votes:poll_votes(
+          user_id,
+          option_index
+        )
+      `)
+      .eq('hidden', false)
+      .order(
+        'created_at',
+        {
+          ascending: false
+        }
+      );
 
-  if (search) {
-    const safeSearch = clean(
-      search,
-      100
-    )
-      .replace(/\\/g, '\\\\')
-      .replace(/%/g, '\\%')
-      .replace(/_/g, '\\_')
-      .replace(/,/g, ' ');
+  const q =
+    clean(query, 100);
 
-    query = query.or(
-      `topic.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,author_name.ilike.%${safeSearch}%`
-    );
+  if (q) {
+    const escaped =
+      q
+        .replace(/[%_]/g, char =>
+          `\\${char}`
+        )
+        .replace(/,/g, ' ');
+
+    request =
+      request.or(
+        `topic.ilike.%${escaped}%,content.ilike.%${escaped}%,author_name.ilike.%${escaped}%`
+      );
   }
 
   const {
     data,
     error
-  } = await query;
+  } = await request;
 
   if (error) {
     throw error;
   }
 
-  return (data || []).map(
-    post =>
-      mapPost(
-        post,
-        currentUserId
-      )
+  return (
+    Array.isArray(data)
+      ? data
+      : []
+  ).map(post =>
+    mapPost(
+      post,
+      currentUserId
+    )
   );
 }
 
-// ==================================================
+// ========================================
 // HEALTH
-// ==================================================
+// ========================================
 
 app.get(
   '/api/health',
-  (_req, res) => {
-    if (configError) {
-      return res.status(503).json({
-        ok: false,
-        service: 'ddp-api',
-        database: 'not-configured',
-        error: configError
-      });
-    }
-
-    return res.json({
-      ok: true,
-      service: 'ddp-api',
-      database: 'configured'
+  (req, res) => {
+    res.json({
+      ok: !configError,
+      service: 'DDP backend',
+      database:
+        !configError
+          ? 'configured'
+          : 'not configured'
     });
   }
 );
 
-// ==================================================
-// POSTS - GET ALL
-// ==================================================
+// ========================================
+// GET POSTS
+// ========================================
 
 app.get(
   '/api/posts',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
     try {
-      const posts = await getPosts(
-        getUserId(req),
-        clean(
-          req.query.q,
-          100
-        )
-      );
+      const posts =
+        await getPosts(
+          getUserId(req),
+          req.query.q
+        );
 
-      return res.json({
+      res.json({
         posts
       });
     } catch (error) {
@@ -452,265 +507,77 @@ app.get(
         error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to load posts.'
+        error.message ||
+          'Unable to load posts.'
       );
     }
   }
 );
 
-// ==================================================
-// POSTS - CREATE
-// ==================================================
-
-app.post(
-  '/api/posts',
-  async (req, res) => {
-    if (!requireSupabase(res)) {
-      return;
-    }
-
-    const currentUserId =
-      getUserId(req);
-
-    const currentUserName =
-      getUserName(req);
-
-    const type =
-      req.body?.type === 'poll'
-        ? 'poll'
-        : 'post';
-
-    const topic = clean(
-      req.body?.topic,
-      MAX_TOPIC_CHARS
-    );
-
-    const content = clean(
-      req.body?.content,
-      MAX_POST_CHARS
-    );
-
-    const image = clean(
-      req.body?.image,
-      MAX_IMAGE_CHARS
-    );
-
-    const options =
-      Array.isArray(
-        req.body?.options
-      )
-        ? req.body.options
-            .map(option =>
-              clean(
-                option,
-                MAX_OPTION_CHARS
-              )
-            )
-            .filter(Boolean)
-        : [];
-
-    // Normal post validation
-    if (
-      type === 'post' &&
-      !topic &&
-      !content &&
-      !image
-    ) {
-      return fail(
-        res,
-        400,
-        'Post cannot be empty.'
-      );
-    }
-
-    // Image validation
-    if (
-      image &&
-      !/^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(
-        image
-      )
-    ) {
-      return fail(
-        res,
-        400,
-        'Invalid image format.'
-      );
-    }
-
-    if (
-      image.length >
-      MAX_IMAGE_CHARS
-    ) {
-      return fail(
-        res,
-        413,
-        'Image is too large.'
-      );
-    }
-
-    // Poll validation
-    if (type === 'poll') {
-      const unique = new Set(
-        options.map(
-          option =>
-            option.toLowerCase()
-        )
-      );
-
-      if (
-        !topic ||
-        options.length < 2 ||
-        options.length > 4 ||
-        unique.size !==
-          options.length
-      ) {
-        return fail(
-          res,
-          400,
-          'Poll needs a question and 2–4 different options.'
-        );
-      }
-    }
-
-    const row = {
-      id: uid(),
-
-      type,
-
-      topic:
-        topic || null,
-
-      content:
-        type === 'post'
-          ? content || null
-          : null,
-
-      image:
-        type === 'post'
-          ? image || null
-          : null,
-
-      options:
-        type === 'poll'
-          ? options.map(
-              text => ({
-                text
-              })
-            )
-          : null,
-
-      author_id:
-        currentUserId,
-
-      author_name:
-        currentUserName ||
-        'Guest'
-    };
-
-    const {
-      data,
-      error
-    } = await supabase
-      .from('posts')
-      .insert(row)
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error(
-        'POST /api/posts:',
-        error
-      );
-
-      return fail(
-        res,
-        500,
-        'Unable to create post.'
-      );
-    }
-
-    return res.status(201).json({
-      success: true,
-
-      post: mapPost(
-        {
-          ...data,
-          comments: [],
-          reactions: [],
-          saves: [],
-          votes: []
-        },
-        currentUserId
-      )
-    });
-  }
-);
-
-// ==================================================
-// GET ONE POST
-// ==================================================
+// ========================================
+// GET SINGLE POST
+// ========================================
 
 app.get(
   '/api/posts/:postId',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
-    }
-
-    const postId =
-      req.params.postId;
-
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
     }
 
     try {
       const {
         data,
         error
-      } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          comments:comments(
+      } =
+        await supabase
+          .from('posts')
+          .select(`
             id,
+            type,
+            topic,
+            content,
+            image,
             author_id,
             author_name,
-            text,
-            created_at
-          ),
-          reactions:post_reactions(
-            user_id
-          ),
-          saves:post_saves(
-            user_id
-          ),
-          votes:poll_votes(
-            user_id,
-            option_index
+            created_at,
+            updated_at,
+            options,
+            hidden,
+            comments:comments(
+              id,
+              post_id,
+              author_id,
+              author_name,
+              text,
+              created_at,
+              updated_at
+            ),
+            reactions:post_reactions(
+              user_id
+            ),
+            saves:post_saves(
+              user_id
+            ),
+            votes:poll_votes(
+              user_id,
+              option_index
+            )
+          `)
+          .eq(
+            'id',
+            req.params.postId
           )
-        `)
-        .eq('id', postId)
-        .maybeSingle();
+          .eq('hidden', false)
+          .maybeSingle();
 
       if (error) {
-        console.error(
-          'GET ONE POST:',
-          error
-        );
-
-        return fail(
-          res,
-          500,
-          'Unable to load post.'
-        );
+        throw error;
       }
 
       if (!data) {
@@ -721,7 +588,7 @@ app.get(
         );
       }
 
-      return res.json({
+      res.json({
         post: mapPost(
           data,
           getUserId(req)
@@ -729,108 +596,69 @@ app.get(
       });
     } catch (error) {
       console.error(
-        'GET ONE POST:',
+        'GET single post:',
         error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to load post.'
+        error.message ||
+          'Unable to load post.'
       );
     }
   }
 );
 
-// ==================================================
-// EDIT POST
-// ==================================================
+// ========================================
+// CREATE POST
+// ========================================
 
-app.put(
-  '/api/posts/:postId',
+app.post(
+  '/api/posts',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    const currentUserId =
-      getUserId(req);
+      const userName =
+        getUserName(req);
 
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
+      const type =
+        req.body.type === 'poll'
+          ? 'poll'
+          : 'post';
 
-    const {
-      data: current,
-      error: currentError
-    } = await supabase
-      .from('posts')
-      .select('*')
-      .eq('id', postId)
-      .maybeSingle();
+      const topic =
+        clean(
+          req.body.topic,
+          200
+        );
 
-    if (currentError) {
-      console.error(
-        'EDIT POST CHECK:',
-        currentError
-      );
+      const content =
+        clean(
+          req.body.content,
+          5000
+        );
 
-      return fail(
-        res,
-        500,
-        'Unable to check post.'
-      );
-    }
-
-    if (!current) {
-      return fail(
-        res,
-        404,
-        'Post not found.'
-      );
-    }
-
-    if (
-      current.author_id !==
-      currentUserId
-    ) {
-      return fail(
-        res,
-        403,
-        'You can only edit your own posts.'
-      );
-    }
-
-    const topic = clean(
-      req.body?.topic,
-      MAX_TOPIC_CHARS
-    );
-
-    const updates = {
-      topic:
-        topic || null,
-      updated_at:
-        new Date().toISOString()
-    };
-
-    // Normal post
-    if (current.type === 'post') {
-      const content = clean(
-        req.body?.content,
-        MAX_POST_CHARS
-      );
+      const image =
+        type === 'post'
+          ? clean(
+              req.body.image,
+              4000000
+            )
+          : '';
 
       if (
         !topic &&
         !content &&
-        !current.image
+        !image
       ) {
         return fail(
           res,
@@ -839,464 +667,732 @@ app.put(
         );
       }
 
-      updates.content =
-        content || null;
+      let options = [];
 
-      if (
-        Object.prototype.hasOwnProperty.call(
-          req.body || {},
-          'image'
-        )
-      ) {
-        const image = clean(
-          req.body.image,
-          MAX_IMAGE_CHARS
-        );
-
+      if (type === 'poll') {
         if (
-          image &&
-          !/^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(
-            image
+          !Array.isArray(
+            req.body.options
           )
         ) {
           return fail(
             res,
             400,
-            'Invalid image format.'
+            'Poll options are required.'
           );
         }
 
-        updates.image =
-          image || null;
+        options =
+          req.body.options
+            .map(option =>
+              clean(option, 100)
+            )
+            .filter(Boolean);
+
+        if (
+          options.length < 2 ||
+          options.length > 4
+        ) {
+          return fail(
+            res,
+            400,
+            'A poll must have 2 to 4 options.'
+          );
+        }
+
+        const unique =
+          new Set(
+            options.map(option =>
+              option.toLowerCase()
+            )
+          );
+
+        if (
+          unique.size !==
+          options.length
+        ) {
+          return fail(
+            res,
+            400,
+            'Poll options must be different.'
+          );
+        }
       }
+
+      const row = {
+        id: uid(),
+        type,
+        topic,
+        content:
+          type === 'post'
+            ? content
+            : '',
+        image,
+        author_id:
+          userId,
+        author_name:
+          userName,
+        options:
+          type === 'poll'
+            ? options
+            : [],
+        hidden: false
+      };
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('posts')
+          .insert(row)
+          .select(`
+            id,
+            type,
+            topic,
+            content,
+            image,
+            author_id,
+            author_name,
+            created_at,
+            updated_at,
+            options,
+            hidden
+          `)
+          .single();
+
+      if (error) {
+        throw error;
+      }
+
+      res.status(201).json({
+        post: mapPost(
+          {
+            ...data,
+            comments: [],
+            reactions: [],
+            saves: [],
+            votes: []
+          },
+          userId
+        )
+      });
+    } catch (error) {
+      console.error(
+        'POST /api/posts:',
+        error
+      );
+
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to create post.'
+      );
+    }
+  }
+);
+
+// ========================================
+// UPDATE POST
+// ========================================
+
+app.put(
+  '/api/posts/:postId',
+  async (req, res) => {
+    if (
+      !requireSupabase(res)
+    ) {
+      return;
     }
 
-    // Poll
-    if (current.type === 'poll') {
-      const {
-        count,
-        error: countError
-      } = await supabase
-        .from('poll_votes')
-        .select('*', {
-          count: 'exact',
-          head: true
-        })
-        .eq(
-          'post_id',
-          postId
-        );
+    try {
+      const userId =
+        getUserId(req);
 
-      if (countError) {
+      const {
+        data: existing,
+        error: findError
+      } =
+        await supabase
+          .from('posts')
+          .select(`
+            id,
+            type,
+            topic,
+            content,
+            image,
+            author_id,
+            author_name,
+            created_at,
+            updated_at,
+            options,
+            hidden
+          `)
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
+
+      if (findError) {
+        throw findError;
+      }
+
+      if (!existing) {
         return fail(
           res,
-          500,
-          'Unable to check poll votes.'
+          404,
+          'Post not found.'
         );
       }
 
       if (
+        existing.author_id !==
+        userId
+      ) {
+        return fail(
+          res,
+          403,
+          'You can only edit your own post.'
+        );
+      }
+
+      const update = {};
+
+      if (
+        req.body.topic !==
+        undefined
+      ) {
+        update.topic =
+          clean(
+            req.body.topic,
+            200
+          );
+      }
+
+      if (
+        req.body.content !==
+        undefined
+      ) {
+        update.content =
+          clean(
+            req.body.content,
+            5000
+          );
+      }
+
+      if (
+        existing.type ===
+          'poll' &&
         Array.isArray(
-          req.body?.options
+          req.body.options
         )
       ) {
-        if (count > 0) {
+        const {
+          data: voteData,
+          error: voteError
+        } =
+          await supabase
+            .from('poll_votes')
+            .select('id')
+            .eq(
+              'post_id',
+              req.params.postId
+            )
+            .limit(1);
+
+        if (voteError) {
+          throw voteError;
+        }
+
+        if (
+          Array.isArray(
+            voteData
+          ) &&
+          voteData.length
+        ) {
           return fail(
             res,
-            409,
-            'Poll options cannot be changed after voting begins.'
+            400,
+            'A poll cannot be changed after someone votes.'
           );
         }
 
         const options =
           req.body.options
             .map(option =>
-              clean(
-                option,
-                MAX_OPTION_CHARS
-              )
+              clean(option, 100)
             )
             .filter(Boolean);
 
-        const unique = new Set(
-          options.map(
-            option =>
-              option.toLowerCase()
-          )
-        );
-
         if (
           options.length < 2 ||
-          options.length > 4 ||
-          unique.size !==
-            options.length
+          options.length > 4
         ) {
           return fail(
             res,
             400,
-            'Poll needs 2–4 different options.'
+            'A poll must have 2 to 4 options.'
           );
         }
 
-        updates.options =
-          options.map(
-            text => ({
-              text
-            })
+        if (
+          new Set(
+            options.map(option =>
+              option.toLowerCase()
+            )
+          ).size !==
+          options.length
+        ) {
+          return fail(
+            res,
+            400,
+            'Poll options must be different.'
           );
+        }
+
+        update.options =
+          options;
       }
-    }
 
-    const {
-      error
-    } = await supabase
-      .from('posts')
-      .update(updates)
-      .eq('id', postId);
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('posts')
+          .update(update)
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .select(`
+            id,
+            type,
+            topic,
+            content,
+            image,
+            author_id,
+            author_name,
+            created_at,
+            updated_at,
+            options,
+            hidden
+          `)
+          .single();
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      res.json({
+        post: mapPost(
+          {
+            ...data,
+            comments: [],
+            reactions: [],
+            saves: [],
+            votes: []
+          },
+          userId
+        )
+      });
+    } catch (error) {
       console.error(
-        'PUT /api/posts/:postId:',
+        'PUT post:',
         error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to edit post.'
+        error.message ||
+          'Unable to update post.'
       );
     }
-
-    return res.json({
-      success: true
-    });
   }
 );
 
-// ==================================================
+// ========================================
 // DELETE POST
-// ==================================================
+// ========================================
 
 app.delete(
   '/api/posts/:postId',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    const currentUserId =
-      getUserId(req);
+      const {
+        data: post,
+        error: findError
+      } =
+        await supabase
+          .from('posts')
+          .select(
+            'id, author_id'
+          )
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
 
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
+      if (findError) {
+        throw findError;
+      }
 
-    const {
-      data: post,
-      error: postError
-    } = await supabase
-      .from('posts')
-      .select(
-        'id,author_id'
-      )
-      .eq('id', postId)
-      .maybeSingle();
+      if (!post) {
+        return fail(
+          res,
+          404,
+          'Post not found.'
+        );
+      }
 
-    if (postError) {
-      return fail(
-        res,
-        500,
-        'Unable to check post.'
-      );
-    }
+      if (
+        post.author_id !==
+        userId
+      ) {
+        return fail(
+          res,
+          403,
+          'You can only delete your own post.'
+        );
+      }
 
-    if (!post) {
-      return fail(
-        res,
-        404,
-        'Post not found.'
-      );
-    }
-
-    if (
-      post.author_id !==
-      currentUserId
-    ) {
-      return fail(
-        res,
-        403,
-        'You can only delete your own posts.'
-      );
-    }
-
-    const {
-      error
-    } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId);
-
-    if (error) {
-      console.error(
-        'DELETE /api/posts/:postId:',
+      const {
         error
-      );
+      } =
+        await supabase
+          .from('posts')
+          .delete()
+          .eq(
+            'id',
+            req.params.postId
+          );
 
-      return fail(
-        res,
-        500,
-        'Unable to delete post.'
-      );
-    }
+      if (error) {
+        throw error;
+      }
 
-    return res.json({
-      success: true
-    });
-  }
-);
-
-// ==================================================
-// COMMENTS - CREATE
-// ==================================================
-
-app.post(
-  '/api/posts/:postId/comments',
-  async (req, res) => {
-    if (!requireSupabase(res)) {
-      return;
-    }
-
-    const postId =
-      req.params.postId;
-
-    const currentUserId =
-      getUserId(req);
-
-    const currentUserName =
-      getUserName(req);
-
-    const commentText = clean(
-      req.body?.text,
-      MAX_COMMENT_CHARS
-    );
-
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
-
-    if (!commentText) {
-      return fail(
-        res,
-        400,
-        'Comment cannot be empty.'
-      );
-    }
-
-    const {
-      data: post,
-      error: postError
-    } = await supabase
-      .from('posts')
-      .select(
-        'id,author_id'
-      )
-      .eq('id', postId)
-      .maybeSingle();
-
-    if (postError) {
-      return fail(
-        res,
-        500,
-        'Unable to check post.'
-      );
-    }
-
-    if (!post) {
-      return fail(
-        res,
-        404,
-        'Post not found.'
-      );
-    }
-
-    const {
-      data,
-      error
-    } = await supabase
-      .from('comments')
-      .insert({
-        id: uid(),
-        post_id: postId,
-        author_id:
-          currentUserId,
-        author_name:
-          currentUserName ||
-          'Guest',
-        text: commentText
-      })
-      .select(`
-        id,
-        author_id,
-        author_name,
-        text,
-        created_at
-      `)
-      .single();
-
-    if (error) {
-      console.error(
-        'POST COMMENT:',
-        error
-      );
-
-      return fail(
-        res,
-        500,
-        'Unable to add comment.'
-      );
-    }
-
-    // Notify post author
-    if (
-      post.author_id &&
-      post.author_id !==
-        currentUserId
-    ) {
-      await createNotification({
-        userId:
-          post.author_id,
-
-        actorId:
-          currentUserId,
-
-        type:
-          'comment',
-
-        postId,
-
-        commentId:
-          data.id,
-
-        message:
-          `${currentUserName} commented on your post.`
+      res.json({
+        success: true
       });
-    }
+    } catch (error) {
+      console.error(
+        'DELETE post:',
+        error
+      );
 
-    return res.status(201).json({
-      success: true,
-      comment:
-        mapComment(data)
-    });
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to delete post.'
+      );
+    }
   }
 );
 
-// ==================================================
-// COMMENTS - GET
-// ==================================================
+// ========================================
+// GET COMMENTS
+// ========================================
 
 app.get(
   '/api/posts/:postId/comments',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('comments')
+          .select(`
+            id,
+            post_id,
+            author_id,
+            author_name,
+            text,
+            created_at,
+            updated_at
+          `)
+          .eq(
+            'post_id',
+            req.params.postId
+          )
+          .order(
+            'created_at',
+            {
+              ascending: true
+            }
+          );
 
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
+      if (error) {
+        throw error;
+      }
 
-    const {
-      data,
-      error
-    } = await supabase
-      .from('comments')
-      .select(`
-        id,
-        author_id,
-        author_name,
-        text,
-        created_at
-      `)
-      .eq(
-        'post_id',
-        postId
-      )
-      .order(
-        'created_at',
-        {
-          ascending: true
-        }
-      );
-
-    if (error) {
+      res.json({
+        comments:
+          (data || [])
+            .map(mapComment)
+      });
+    } catch (error) {
       console.error(
-        'GET COMMENTS:',
+        'GET comments:',
         error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to load comments.'
+        error.message ||
+          'Unable to load comments.'
       );
     }
-
-    return res.json({
-      comments:
-        (data || []).map(
-          mapComment
-        )
-    });
   }
 );
 
-// ==================================================
-// COMMENT - EDIT
-// ==================================================
+// ========================================
+// CREATE COMMENT
+// ========================================
 
-app.put(
-  '/api/comments/:commentId',
+app.post(
+  '/api/posts/:postId/comments',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const commentId =
-      req.params.commentId;
+    try {
+      const userId =
+        getUserId(req);
 
-    const currentUserId =
-      getUserId(req);
+      const userName =
+        getUserName(req);
 
-    const text = clean(
-      req.body?.text,
-      MAX_COMMENT_CHARS
-    );
+      const text =
+        clean(
+          req.body.text,
+          300
+        );
 
-    if (!isUUID(commentId)) {
-      return fail(
+      if (!text) {
+        return fail(
+          res,
+          400,
+          'Comment cannot be empty.'
+        );
+      }
+
+      const {
+        data: post,
+        error: postError
+      } =
+        await supabase
+          .from('posts')
+          .select(
+            'id, author_id, topic'
+          )
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
+
+      if (postError) {
+        throw postError;
+      }
+
+      if (!post) {
+        return fail(
+          res,
+          404,
+          'Post not found.'
+        );
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('comments')
+          .insert({
+            id: uid(),
+            post_id:
+              req.params.postId,
+            author_id:
+              userId,
+            author_name:
+              userName,
+            text
+          })
+          .select(`
+            id,
+            post_id,
+            author_id,
+            author_name,
+            text,
+            created_at,
+            updated_at
+          `)
+          .single();
+
+      if (error) {
+        throw error;
+      }
+
+      await createNotification({
+        userId:
+          post.author_id,
+        actorId:
+          userId,
+        type:
+          'comment',
+        postId:
+          req.params.postId,
+        commentId:
+          data.id,
+        message:
+          `${userName} commented on your post.`
+      });
+
+      res.status(201).json({
+        comment:
+          mapComment(data)
+      });
+    } catch (error) {
+      console.error(
+        'POST comment:',
+        error
+      );
+
+      fail(
         res,
-        400,
-        'Invalid comment ID.'
+        500,
+        error.message ||
+          'Unable to create comment.'
       );
     }
+  }
+);
+
+// ========================================
+// FIND COMMENT
+// ========================================
+
+async function findComment(
+  commentId
+) {
+  const {
+    data,
+    error
+  } =
+    await supabase
+      .from('comments')
+      .select(`
+        id,
+        post_id,
+        author_id,
+        author_name,
+        text,
+        created_at,
+        updated_at
+      `)
+      .eq(
+        'id',
+        commentId
+      )
+      .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+// ========================================
+// UPDATE COMMENT
+// ========================================
+
+async function updateCommentHandler(
+  req,
+  res
+) {
+  if (
+    !requireSupabase(res)
+  ) {
+    return;
+  }
+
+  try {
+    const userId =
+      getUserId(req);
+
+    const comment =
+      await findComment(
+        req.params.commentId
+      );
+
+    if (!comment) {
+      return fail(
+        res,
+        404,
+        'Comment not found.'
+      );
+    }
+
+    if (
+      req.params.postId &&
+      String(
+        comment.post_id
+      ) !==
+        String(
+          req.params.postId
+        )
+    ) {
+      return fail(
+        res,
+        404,
+        'Comment not found.'
+      );
+    }
+
+    if (
+      comment.author_id !==
+      userId
+    ) {
+      return fail(
+        res,
+        403,
+        'You can only edit your own comment.'
+      );
+    }
+
+    const text =
+      clean(
+        req.body.text,
+        300
+      );
 
     if (!text) {
       return fail(
@@ -1307,134 +1403,74 @@ app.put(
     }
 
     const {
-      data: comment,
-      error: commentError
-    } = await supabase
-      .from('comments')
-      .select(
-        'id,author_id'
-      )
-      .eq(
-        'id',
-        commentId
-      )
-      .maybeSingle();
-
-    if (commentError) {
-      return fail(
-        res,
-        500,
-        'Unable to check comment.'
-      );
-    }
-
-    if (!comment) {
-      return fail(
-        res,
-        404,
-        'Comment not found.'
-      );
-    }
-
-    if (
-      comment.author_id !==
-      currentUserId
-    ) {
-      return fail(
-        res,
-        403,
-        'You can only edit your own comments.'
-      );
-    }
-
-    const {
       data,
       error
-    } = await supabase
-      .from('comments')
-      .update({
-        text
-      })
-      .eq(
-        'id',
-        commentId
-      )
-      .select(`
-        id,
-        author_id,
-        author_name,
-        text,
-        created_at
-      `)
-      .single();
+    } =
+      await supabase
+        .from('comments')
+        .update({
+          text
+        })
+        .eq(
+          'id',
+          req.params.commentId
+        )
+        .select(`
+          id,
+          post_id,
+          author_id,
+          author_name,
+          text,
+          created_at,
+          updated_at
+        `)
+        .single();
 
     if (error) {
-      console.error(
-        'PUT COMMENT:',
-        error
-      );
-
-      return fail(
-        res,
-        500,
-        'Unable to edit comment.'
-      );
+      throw error;
     }
 
-    return res.json({
-      success: true,
+    res.json({
       comment:
         mapComment(data)
     });
+  } catch (error) {
+    console.error(
+      'UPDATE comment:',
+      error
+    );
+
+    fail(
+      res,
+      500,
+      error.message ||
+        'Unable to update comment.'
+    );
   }
-);
+}
 
-// ==================================================
-// COMMENT - DELETE
-// ==================================================
+// ========================================
+// DELETE COMMENT
+// ========================================
 
-app.delete(
-  '/api/comments/:commentId',
-  async (req, res) => {
-    if (!requireSupabase(res)) {
-      return;
-    }
+async function deleteCommentHandler(
+  req,
+  res
+) {
+  if (
+    !requireSupabase(res)
+  ) {
+    return;
+  }
 
-    const commentId =
-      req.params.commentId;
-
-    const currentUserId =
+  try {
+    const userId =
       getUserId(req);
 
-    if (!isUUID(commentId)) {
-      return fail(
-        res,
-        400,
-        'Invalid comment ID.'
+    const comment =
+      await findComment(
+        req.params.commentId
       );
-    }
-
-    const {
-      data: comment,
-      error: commentError
-    } = await supabase
-      .from('comments')
-      .select(
-        'id,author_id'
-      )
-      .eq(
-        'id',
-        commentId
-      )
-      .maybeSingle();
-
-    if (commentError) {
-      return fail(
-        res,
-        500,
-        'Unable to check comment.'
-      );
-    }
 
     if (!comment) {
       return fail(
@@ -1445,662 +1481,802 @@ app.delete(
     }
 
     if (
+      req.params.postId &&
+      String(
+        comment.post_id
+      ) !==
+        String(
+          req.params.postId
+        )
+    ) {
+      return fail(
+        res,
+        404,
+        'Comment not found.'
+      );
+    }
+
+    if (
       comment.author_id !==
-      currentUserId
+      userId
     ) {
       return fail(
         res,
         403,
-        'You can only delete your own comments.'
+        'You can only delete your own comment.'
       );
     }
 
     const {
       error
-    } = await supabase
-      .from('comments')
-      .delete()
-      .eq(
-        'id',
-        commentId
-      );
+    } =
+      await supabase
+        .from('comments')
+        .delete()
+        .eq(
+          'id',
+          req.params.commentId
+        );
 
     if (error) {
-      console.error(
-        'DELETE COMMENT:',
-        error
-      );
-
-      return fail(
-        res,
-        500,
-        'Unable to delete comment.'
-      );
+      throw error;
     }
 
-    return res.json({
+    res.json({
       success: true
     });
+  } catch (error) {
+    console.error(
+      'DELETE comment:',
+      error
+    );
+
+    fail(
+      res,
+      500,
+      error.message ||
+        'Unable to delete comment.'
+    );
   }
+}
+
+// ========================================
+// COMMENT ROUTES
+// ========================================
+
+// New routes used by app.js.
+app.put(
+  '/api/posts/:postId/comments/:commentId',
+  updateCommentHandler
 );
 
-// ==================================================
-// RELATION HELPER
-// ==================================================
+app.delete(
+  '/api/posts/:postId/comments/:commentId',
+  deleteCommentHandler
+);
 
-async function toggleRelation(
+// Legacy routes kept for compatibility.
+app.put(
+  '/api/comments/:commentId',
+  updateCommentHandler
+);
+
+app.delete(
+  '/api/comments/:commentId',
+  deleteCommentHandler
+);
+
+// ========================================
+// TOGGLE RELATION
+// ========================================
+
+async function toggleRelation({
   table,
   postId,
-  currentUserId,
-  errorMessage,
-  res
-) {
-  const {
-    data: post,
-    error: postError
-  } = await supabase
-    .from('posts')
-    .select('id')
-    .eq('id', postId)
-    .maybeSingle();
-
-  if (postError) {
-    return fail(
-      res,
-      500,
-      'Unable to check post.'
-    );
-  }
-
-  if (!post) {
-    return fail(
-      res,
-      404,
-      'Post not found.'
-    );
-  }
-
+  userId
+}) {
   const {
     data: existing,
-    error: existingError
-  } = await supabase
-    .from(table)
-    .select('user_id')
-    .eq(
-      'post_id',
-      postId
-    )
-    .eq(
-      'user_id',
-      currentUserId
-    )
-    .maybeSingle();
-
-  if (existingError) {
-    console.error(
-      'RELATION CHECK:',
-      existingError
-    );
-
-    return fail(
-      res,
-      500,
-      errorMessage
-    );
-  }
-
-  let result;
-
-  if (existing) {
-    result = await supabase
+    error: findError
+  } =
+    await supabase
       .from(table)
-      .delete()
+      .select('id')
       .eq(
         'post_id',
         postId
       )
       .eq(
         'user_id',
-        currentUserId
-      );
-  } else {
-    result = await supabase
+        userId
+      )
+      .maybeSingle();
+
+  if (findError) {
+    throw findError;
+  }
+
+  if (existing) {
+    const {
+      error
+    } =
+      await supabase
+        .from(table)
+        .delete()
+        .eq(
+          'id',
+          existing.id
+        );
+
+    if (error) {
+      throw error;
+    }
+
+    return false;
+  }
+
+  const {
+    error
+  } =
+    await supabase
       .from(table)
       .insert({
-        post_id: postId,
-        user_id: currentUserId
+        id: uid(),
+        post_id:
+          postId,
+        user_id:
+          userId
       });
+
+  if (error) {
+    throw error;
   }
 
-  if (result.error) {
-    console.error(
-      'RELATION UPDATE:',
-      result.error
-    );
-
-    return fail(
-      res,
-      500,
-      errorMessage
-    );
-  }
-
-  return res.json({
-    success: true,
-    active: !existing
-  });
+  return true;
 }
 
-// ==================================================
+// ========================================
 // REACTION
-// ==================================================
+// ========================================
 
 app.post(
   '/api/posts/:postId/react',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    if (!isUUID(postId)) {
-      return fail(
+      const reacted =
+        await toggleRelation({
+          table:
+            'post_reactions',
+          postId:
+            req.params.postId,
+          userId
+        });
+
+      res.json({
+        reacted
+      });
+    } catch (error) {
+      console.error(
+        'React:',
+        error
+      );
+
+      fail(
         res,
-        400,
-        'Invalid post ID.'
+        500,
+        error.message ||
+          'Unable to react to post.'
       );
     }
-
-    return toggleRelation(
-      'post_reactions',
-      postId,
-      getUserId(req),
-      'Unable to update reaction.',
-      res
-    );
   }
 );
 
-// ==================================================
+// ========================================
 // SAVE
-// ==================================================
+// ========================================
 
 app.post(
   '/api/posts/:postId/save',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    if (!isUUID(postId)) {
-      return fail(
+      const saved =
+        await toggleRelation({
+          table:
+            'post_saves',
+          postId:
+            req.params.postId,
+          userId
+        });
+
+      res.json({
+        saved
+      });
+    } catch (error) {
+      console.error(
+        'Save:',
+        error
+      );
+
+      fail(
         res,
-        400,
-        'Invalid post ID.'
+        500,
+        error.message ||
+          'Unable to save post.'
       );
     }
-
-    return toggleRelation(
-      'post_saves',
-      postId,
-      getUserId(req),
-      'Unable to update saved post.',
-      res
-    );
   }
 );
 
-// ==================================================
+// ========================================
 // POLL VOTE
-// ==================================================
+// ========================================
 
 app.post(
   '/api/posts/:postId/vote',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    const optionIndex =
-      Number(
-        req.body?.option
-      );
+      const optionIndex =
+        Number(
+          req.body.option
+        );
 
-    const currentUserId =
-      getUserId(req);
-
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
-
-    if (
-      !Number.isInteger(
-        optionIndex
-      ) ||
-      optionIndex < 0 ||
-      optionIndex > 3
-    ) {
-      return fail(
-        res,
-        400,
-        'Invalid poll option.'
-      );
-    }
-
-    const {
-      data: post,
-      error: postError
-    } = await supabase
-      .from('posts')
-      .select(
-        'type,options'
-      )
-      .eq(
-        'id',
-        postId
-      )
-      .maybeSingle();
-
-    if (postError) {
-      return fail(
-        res,
-        500,
-        'Unable to check poll.'
-      );
-    }
-
-    if (
-      !post ||
-      post.type !== 'poll'
-    ) {
-      return fail(
-        res,
-        404,
-        'Poll not found.'
-      );
-    }
-
-    if (
-      !Array.isArray(
-        post.options
-      ) ||
-      optionIndex >=
-        post.options.length
-    ) {
-      return fail(
-        res,
-        400,
-        'Invalid poll option.'
-      );
-    }
-
-    const {
-      data: existing,
-      error: existingError
-    } = await supabase
-      .from('poll_votes')
-      .select(
-        'option_index'
-      )
-      .eq(
-        'post_id',
-        postId
-      )
-      .eq(
-        'user_id',
-        currentUserId
-      )
-      .maybeSingle();
-
-    if (existingError) {
-      return fail(
-        res,
-        500,
-        'Unable to check existing vote.'
-      );
-    }
-
-    if (existing) {
-      return fail(
-        res,
-        409,
-        'You already voted on this poll.'
-      );
-    }
-
-    const {
-      error: insertError
-    } = await supabase
-      .from('poll_votes')
-      .insert({
-        post_id: postId,
-        user_id:
-          currentUserId,
-        option_index:
-          optionIndex
-      });
-
-    if (insertError) {
       if (
-        insertError.code ===
-        '23505'
+        !Number.isInteger(
+          optionIndex
+        ) ||
+        optionIndex < 0 ||
+        optionIndex > 3
       ) {
         return fail(
           res,
-          409,
-          'You already voted on this poll.'
+          400,
+          'Invalid poll option.'
         );
       }
 
+      const {
+        data: post,
+        error: postError
+      } =
+        await supabase
+          .from('posts')
+          .select(
+            'id, type, options, author_id'
+          )
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
+
+      if (postError) {
+        throw postError;
+      }
+
+      if (!post) {
+        return fail(
+          res,
+          404,
+          'Post not found.'
+        );
+      }
+
+      if (
+        post.type !== 'poll'
+      ) {
+        return fail(
+          res,
+          400,
+          'This post is not a poll.'
+        );
+      }
+
+      const options =
+        Array.isArray(
+          post.options
+        )
+          ? post.options
+          : [];
+
+      if (
+        optionIndex >=
+        options.length
+      ) {
+        return fail(
+          res,
+          400,
+          'Invalid poll option.'
+        );
+      }
+
+      const {
+        data: existing,
+        error: existingError
+      } =
+        await supabase
+          .from('poll_votes')
+          .select('id')
+          .eq(
+            'post_id',
+            req.params.postId
+          )
+          .eq(
+            'user_id',
+            userId
+          )
+          .maybeSingle();
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      if (existing) {
+        return fail(
+          res,
+          400,
+          'You have already voted on this poll.'
+        );
+      }
+
+      const {
+        error
+      } =
+        await supabase
+          .from('poll_votes')
+          .insert({
+            id: uid(),
+            post_id:
+              req.params.postId,
+            user_id:
+              userId,
+            option_index:
+              optionIndex
+          });
+
+      if (error) {
+        throw error;
+      }
+
+      res.json({
+        voted: true,
+        option:
+          optionIndex
+      });
+    } catch (error) {
       console.error(
-        'POLL VOTE:',
-        insertError
+        'Vote:',
+        error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to save vote.'
+        error.message ||
+          'Unable to vote.'
       );
     }
-
-    return res.json({
-      success: true
-    });
   }
 );
 
-// ==================================================
+// ========================================
 // HIDE POST
-// ==================================================
+// ========================================
 
 app.post(
   '/api/posts/:postId/hide',
   async (req, res) => {
-    if (!requireSupabase(res)) {
-      return;
-    }
-
-    const postId =
-      req.params.postId;
-
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
-
-    // Personal hiding is handled
-    // by the frontend localStorage.
-    // This does NOT delete the post
-    // from Supabase.
-
-    return res.json({
-      success: true,
-      personal: true
+    // Hide is intentionally local to
+    // the current user's browser.
+    res.json({
+      hidden: true
     });
   }
 );
 
-// ==================================================
+// ========================================
 // REPORT POST
-// ==================================================
+// ========================================
 
 app.post(
   '/api/posts/:postId/report',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const postId =
-      req.params.postId;
+    try {
+      const userId =
+        getUserId(req);
 
-    const reason = clean(
-      req.body?.reason,
-      MAX_REPORT_CHARS
-    );
+      const reason =
+        clean(
+          req.body.reason,
+          500
+        );
 
-    if (!isUUID(postId)) {
-      return fail(
-        res,
-        400,
-        'Invalid post ID.'
-      );
-    }
+      if (!reason) {
+        return fail(
+          res,
+          400,
+          'Report reason is required.'
+        );
+      }
 
-    if (!reason) {
-      return fail(
-        res,
-        400,
-        'Report reason is required.'
-      );
-    }
+      const {
+        data: post,
+        error: postError
+      } =
+        await supabase
+          .from('posts')
+          .select(
+            'id, author_id'
+          )
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
 
-    const {
-      data: post,
-      error: postError
-    } = await supabase
-      .from('posts')
-      .select('id')
-      .eq(
-        'id',
-        postId
-      )
-      .maybeSingle();
+      if (postError) {
+        throw postError;
+      }
 
-    if (postError) {
-      return fail(
-        res,
-        500,
-        'Unable to check post.'
-      );
-    }
+      if (!post) {
+        return fail(
+          res,
+          404,
+          'Post not found.'
+        );
+      }
 
-    if (!post) {
-      return fail(
-        res,
-        404,
-        'Post not found.'
-      );
-    }
+      const {
+        error
+      } =
+        await supabase
+          .from('reports')
+          .insert({
+            id: uid(),
+            post_id:
+              req.params.postId,
+            comment_id:
+              null,
+            reporter_id:
+              userId,
+            reason
+          });
 
-    const {
-      error
-    } = await supabase
-      .from('reports')
-      .insert({
-        id: uid(),
-        post_id: postId,
-        reporter_id:
-          getUserId(req),
-        reason
+      if (error) {
+        throw error;
+      }
+
+      res.json({
+        reported: true
       });
-
-    if (error) {
+    } catch (error) {
       console.error(
-        'REPORT POST:',
+        'Report post:',
         error
       );
 
-      return fail(
+      fail(
         res,
         500,
-        'Unable to submit report.'
+        error.message ||
+          'Unable to report post.'
       );
     }
-
-    return res.status(201).json({
-      success: true
-    });
   }
 );
 
-// ==================================================
-// NOTIFICATIONS - GET
-// ==================================================
+// ========================================
+// REPORT COMMENT
+// ========================================
+
+app.post(
+  '/api/posts/:postId/comments/:commentId/report',
+  async (req, res) => {
+    if (
+      !requireSupabase(res)
+    ) {
+      return;
+    }
+
+    try {
+      const userId =
+        getUserId(req);
+
+      const reason =
+        clean(
+          req.body.reason,
+          500
+        );
+
+      if (!reason) {
+        return fail(
+          res,
+          400,
+          'Report reason is required.'
+        );
+      }
+
+      const comment =
+        await findComment(
+          req.params.commentId
+        );
+
+      if (!comment) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      if (
+        String(
+          comment.post_id
+        ) !==
+        String(
+          req.params.postId
+        )
+      ) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      const {
+        error
+      } =
+        await supabase
+          .from('reports')
+          .insert({
+            id: uid(),
+            post_id:
+              req.params.postId,
+            comment_id:
+              req.params.commentId,
+            reporter_id:
+              userId,
+            reason
+          });
+
+      if (error) {
+        throw error;
+      }
+
+      res.json({
+        reported: true
+      });
+    } catch (error) {
+      console.error(
+        'Report comment:',
+        error
+      );
+
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to report comment.'
+      );
+    }
+  }
+);
+
+// ========================================
+// NOTIFICATIONS
+// ========================================
 
 app.get(
   '/api/notifications',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const currentUserId =
-      getUserId(req);
-
     try {
+      const userId =
+        getUserId(req);
+
       const {
         data,
         error
-      } = await supabase
-        .from('notifications')
-        .select(`
-          id,
-          user_id,
-          actor_id,
-          type,
-          post_id,
-          comment_id,
-          message,
-          read,
-          created_at
-        `)
-        .eq(
-          'user_id',
-          currentUserId
-        )
-        .order(
-          'created_at',
-          {
-            ascending: false
-          }
-        )
-        .limit(100);
+      } =
+        await supabase
+          .from('notifications')
+          .select(`
+            id,
+            user_id,
+            actor_id,
+            type,
+            post_id,
+            comment_id,
+            message,
+            read,
+            created_at
+          `)
+          .eq(
+            'user_id',
+            userId
+          )
+          .order(
+            'created_at',
+            {
+              ascending: false
+            }
+          )
+          .limit(100);
 
-      // If notifications table
-      // hasn't been created yet,
-      // don't break the whole app.
       if (error) {
-        console.error(
-          'GET NOTIFICATIONS:',
-          error
-        );
-
-        return res.json({
-          notifications: []
-        });
+        throw error;
       }
 
-      return res.json({
-        notifications:
-          data || []
+      const notifications =
+        (data || []).map(
+          item => ({
+            id:
+              item.id,
+
+            userId:
+              item.user_id,
+
+            actorId:
+              item.actor_id,
+
+            type:
+              item.type,
+
+            postId:
+              item.post_id,
+
+            commentId:
+              item.comment_id,
+
+            message:
+              item.message,
+
+            read:
+              Boolean(
+                item.read
+              ),
+
+            createdAt:
+              item.created_at
+          })
+        );
+
+      res.json({
+        notifications
       });
     } catch (error) {
       console.error(
-        'GET NOTIFICATIONS:',
+        'Notifications:',
         error
       );
 
-      return res.json({
-        notifications: []
-      });
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to load notifications.'
+      );
     }
   }
 );
 
-// ==================================================
-// NOTIFICATIONS - MARK READ
-// ==================================================
+// ========================================
+// MARK NOTIFICATIONS READ
+// ========================================
 
 app.post(
   '/api/notifications/read',
   async (req, res) => {
-    if (!requireSupabase(res)) {
+    if (
+      !requireSupabase(res)
+    ) {
       return;
     }
 
-    const currentUserId =
-      getUserId(req);
-
     try {
+      const userId =
+        getUserId(req);
+
       const {
         error
-      } = await supabase
-        .from('notifications')
-        .update({
-          read: true
-        })
-        .eq(
-          'user_id',
-          currentUserId
-        )
-        .eq(
-          'read',
-          false
-        );
+      } =
+        await supabase
+          .from('notifications')
+          .update({
+            read: true
+          })
+          .eq(
+            'user_id',
+            userId
+          )
+          .eq(
+            'read',
+            false
+          );
 
       if (error) {
-        console.error(
-          'READ NOTIFICATIONS:',
-          error
-        );
+        throw error;
       }
 
-      return res.json({
+      res.json({
         success: true
       });
     } catch (error) {
       console.error(
-        'READ NOTIFICATIONS:',
+        'Read notifications:',
         error
       );
 
-      return res.json({
-        success: true
-      });
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to update notifications.'
+      );
     }
   }
 );
 
-// ==================================================
+// ========================================
 // UNKNOWN API ROUTE
-// ==================================================
+// ========================================
 
 app.use(
   '/api',
-  (_req, res) => {
-    return fail(
-      res,
-      404,
-      'API route not found.'
-    );
+  (req, res) => {
+    res.status(404).json({
+      error:
+        'API endpoint not found.'
+    });
   }
 );
 
-// ==================================================
+// ========================================
 // FRONTEND FALLBACK
-// Express 5 compatible wildcard
-// ==================================================
+// Express 5 syntax
+// ========================================
 
 app.get(
   '/{*splat}',
-  (_req, res) => {
+  (req, res) => {
     res.sendFile(
       path.join(
         ROOT,
@@ -2110,9 +2286,9 @@ app.get(
   }
 );
 
-// ==================================================
+// ========================================
 // START SERVER
-// ==================================================
+// ========================================
 
 app.listen(
   PORT,
@@ -2124,7 +2300,11 @@ app.listen(
 
     if (configError) {
       console.error(
-        `Configuration warning: ${configError}`
+        'WARNING: Supabase environment variables are missing or invalid.'
+      );
+    } else {
+      console.log(
+        'Supabase configuration detected.'
       );
     }
   }
