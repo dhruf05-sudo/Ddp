@@ -194,10 +194,11 @@
 
       'X-DDP-User-ID': identity.id,
 
+      'X-DDP-User-Name': identity.name || 'Anonymous',
+
       ...(options.body !== undefined
         ? {
-            'Content-Type':
-              'application/json'
+            'Content-Type': 'application/json'
           }
         : {}),
 
@@ -230,13 +231,13 @@
     try {
       data = await response.json();
     } catch {
-      // Keep error useful if server returns HTML.
+      // Server may have returned non-JSON.
     }
 
     if (!response.ok) {
       const error = new Error(
         data.error ||
-          `Request failed (${response.status})`
+        `Request failed (${response.status})`
       );
 
       error.status = response.status;
@@ -408,9 +409,7 @@
         '/posts' +
           (
             query
-              ? `?q=${encodeURIComponent(
-                  query
-                )}`
+              ? `?q=${encodeURIComponent(query)}`
               : ''
           )
       );
@@ -527,9 +526,7 @@
 
     actions.forEach(action => {
       const button =
-        document.createElement(
-          'button'
-        );
+        document.createElement('button');
 
       button.type =
         'button';
@@ -570,7 +567,7 @@
           } catch (error) {
             alert(
               error.message ||
-                'Something went wrong.'
+              'Something went wrong.'
             );
           }
         }
@@ -584,8 +581,8 @@
 
     if (
       parent &&
-      getComputedStyle(parent)
-        .position === 'static'
+      getComputedStyle(parent).position ===
+        'static'
     ) {
       parent.style.position =
         'relative';
@@ -675,9 +672,7 @@
     REPORT_OPTIONS.forEach(
       reason => {
         const button =
-          document.createElement(
-            'button'
-          );
+          document.createElement('button');
 
         button.type =
           'button';
@@ -715,9 +710,7 @@
                   'Please describe the reason:'
                 );
 
-              if (
-                !details?.trim()
-              ) {
+              if (!details?.trim()) {
                 return;
               }
 
@@ -738,7 +731,7 @@
             } catch (error) {
               alert(
                 error.message ||
-                  'Unable to submit report.'
+                'Unable to submit report.'
               );
             }
           }
@@ -751,9 +744,7 @@
     );
 
     const cancel =
-      document.createElement(
-        'button'
-      );
+      document.createElement('button');
 
     cancel.type =
       'button';
@@ -827,16 +818,16 @@
                           <b>
                             ${safeText(
                               comment.name ||
-                                comment.authorName ||
-                                'Anonymous'
+                              comment.authorName ||
+                              'Anonymous'
                             )}
                           </b>
 
                           <span class="commentText">
                             ${safeText(
                               comment.text ||
-                                comment.content ||
-                                ''
+                              comment.content ||
+                              ''
                             )}
                           </span>
 
@@ -931,9 +922,7 @@
       options.reduce(
         (sum, option) =>
           sum +
-          Number(
-            option.votes || 0
-          ),
+          Number(option.votes || 0),
         0
       );
 
@@ -960,8 +949,8 @@
                   total
                     ? Math.round(
                         votes /
-                          total *
-                          100
+                        total *
+                        100
                       )
                     : 0;
 
@@ -1050,9 +1039,7 @@
       'Anonymous';
 
     const initial =
-      author
-        .charAt(0)
-        .toUpperCase() ||
+      author.charAt(0).toUpperCase() ||
       '?';
 
     return `
@@ -1332,6 +1319,9 @@
             post => post.saved
           );
       }
+
+      container._ddpPosts =
+        posts;
 
       container.innerHTML =
         posts.length
@@ -1642,10 +1632,10 @@
     }
 
     try {
+      // FIXED:
+      // Backend route is /api/comments/:commentId
       await api(
-        `/posts/${encodeURIComponent(
-          postId
-        )}/comments/${encodeURIComponent(
+        `/comments/${encodeURIComponent(
           commentId
         )}`,
         {
@@ -1688,10 +1678,10 @@
     if (!confirmed) return;
 
     try {
+      // FIXED:
+      // Backend route is /api/comments/:commentId
       await api(
-        `/posts/${encodeURIComponent(
-          postId
-        )}/comments/${encodeURIComponent(
+        `/comments/${encodeURIComponent(
           commentId
         )}`,
         {
@@ -1984,11 +1974,6 @@
           const postId =
             button.dataset.more;
 
-          const post =
-            button.closest(
-              '.feedCard'
-            );
-
           const me =
             currentIdentity();
 
@@ -2192,7 +2177,7 @@
 
                         resolve();
                       }
-                  });
+                  );
                 }
               )
           });
@@ -2241,22 +2226,6 @@
       ? post.comments
       : [];
   }
-
-  // =========================
-  // STORE POSTS AFTER LOAD
-  // =========================
-
-  const originalLoadPosts =
-    loadPosts;
-
-  loadPosts = async query => {
-    const posts =
-      await originalLoadPosts(
-        query
-      );
-
-    return posts;
-  };
 
   // =========================
   // CREATE POST
@@ -2821,7 +2790,8 @@
 
                     <b>
                       ${safeText(
-                        notification.actorName
+                        notification.actorName ||
+                        'Anonymous'
                       )}
                     </b>
 
@@ -2878,17 +2848,7 @@
       renderFeed(
         feed,
         filter
-      ).then(async () => {
-        try {
-          feed._ddpPosts =
-            await loadPosts(
-              feed.dataset.query ||
-                ''
-            );
-        } catch {
-          // Already rendered.
-        }
-      });
+      );
     }
 
     const nav =
@@ -2902,59 +2862,6 @@
         );
     }
   }
-
-  // =========================
-  // PATCH RENDER FEED
-  // =========================
-
-  const originalRenderFeed =
-    renderFeed;
-
-  renderFeed =
-    async (
-      container,
-      filter = 'all',
-      query = ''
-    ) => {
-      await originalRenderFeed(
-        container,
-        filter,
-        query
-      );
-
-      try {
-        container._ddpPosts =
-          await loadPosts(
-            query
-          );
-
-        if (filter === 'mine') {
-          container._ddpPosts =
-            container._ddpPosts.filter(
-              post =>
-                post.authorId ===
-                  currentIdentity()
-                    .id ||
-                post.userId ===
-                  currentIdentity()
-                    .id ||
-                post.ownerId ===
-                  currentIdentity()
-                    .id
-            );
-        }
-
-        if (filter === 'saved') {
-          container._ddpPosts =
-            container._ddpPosts.filter(
-              post => post.saved
-            );
-        }
-      } catch {
-        container._ddpPosts =
-          [];
-      }
-    };
 
   // =========================
   // PUBLIC API
