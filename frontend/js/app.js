@@ -1163,6 +1163,7 @@
         <div class="postActions">
 
           <button
+            id="actions"
             type="button"
             class="${
               reacted
@@ -1200,6 +1201,7 @@
           </button>
 
           <button
+            id="actions"
             type="button"
             data-toggle-comments="${escapeHTML(
               post.id
@@ -1231,6 +1233,7 @@
           </button>
 
           <button
+            id="actions"
             type="button"
             class="${
               saved
