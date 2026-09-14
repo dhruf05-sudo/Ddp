@@ -1,5 +1,7 @@
 (() => {
-  const API_BASE = String(window.DDP_API || '/api').replace(/\/$/, '');
+  const API_BASE = String(
+    window.DDP_API || '/api'
+  ).replace(/\/$/, '');
 
   const KEYS = {
     identity: 'ddp_identity_v4',
@@ -25,7 +27,10 @@
 
   function getJSON(key, fallback) {
     try {
-      const value = JSON.parse(localStorage.getItem(key));
+      const value = JSON.parse(
+        localStorage.getItem(key)
+      );
+
       return value ?? fallback;
     } catch {
       return fallback;
@@ -34,9 +39,12 @@
 
   function setJSON(key, value) {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(
+        key,
+        JSON.stringify(value)
+      );
     } catch {
-      // Storage can be disabled or full.
+      // Storage unavailable/full.
     }
   }
 
@@ -45,7 +53,11 @@
   // =========================
 
   function currentIdentity() {
-    let identity = getJSON(KEYS.identity, null);
+    let identity =
+      getJSON(
+        KEYS.identity,
+        null
+      );
 
     if (!identity?.id) {
       identity = {
@@ -53,24 +65,31 @@
         name: 'Anonymous'
       };
 
-      setJSON(KEYS.identity, identity);
+      setJSON(
+        KEYS.identity,
+        identity
+      );
     }
 
     return identity;
   }
 
   // =========================
-  // SECURITY / HTML
+  // SECURITY
   // =========================
 
   function escapeHTML(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[char]));
+    return String(value ?? '')
+      .replace(
+        /[&<>"']/g,
+        char => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[char])
+      );
   }
 
   // =========================
@@ -98,11 +117,18 @@
     let text = String(value ?? '');
 
     for (const word of SWEAR_WORDS) {
-      const pattern = new RegExp(`\\b${word}\\b`, 'gi');
+      const pattern =
+        new RegExp(
+          `\\b${word}\\b`,
+          'gi'
+        );
 
       text = text.replace(
         pattern,
-        match => '*'.repeat(match.length)
+        match =>
+          '*'.repeat(
+            match.length
+          )
       );
     }
 
@@ -110,11 +136,17 @@
   }
 
   function safeText(value) {
-    return escapeHTML(maskSwearing(value));
+    return escapeHTML(
+      maskSwearing(value)
+    );
   }
 
   function safeMultilineText(value) {
-    return safeText(value).replace(/\n/g, '<br>');
+    return safeText(value)
+      .replace(
+        /\n/g,
+        '<br>'
+      );
   }
 
   // =========================
@@ -122,14 +154,20 @@
   // =========================
 
   function formatDate(timestamp) {
-    const date = new Date(timestamp);
+    const date =
+      new Date(timestamp);
 
-    return Number.isNaN(date.getTime())
+    return Number.isNaN(
+      date.getTime()
+    )
       ? ''
-      : date.toLocaleString([], {
-          dateStyle: 'medium',
-          timeStyle: 'short'
-        });
+      : date.toLocaleString(
+          [],
+          {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          }
+        );
   }
 
   // =========================
@@ -137,10 +175,11 @@
   // =========================
 
   function localPosts() {
-    const posts = getJSON(
-      KEYS.fallbackPosts,
-      []
-    );
+    const posts =
+      getJSON(
+        KEYS.fallbackPosts,
+        []
+      );
 
     return Array.isArray(posts)
       ? posts
@@ -152,10 +191,11 @@
   // =========================
 
   function hiddenPosts() {
-    const posts = getJSON(
-      KEYS.hiddenPosts,
-      []
-    );
+    const posts =
+      getJSON(
+        KEYS.hiddenPosts,
+        []
+      );
 
     return Array.isArray(posts)
       ? posts
@@ -163,9 +203,14 @@
   }
 
   function hideLocalPost(postId) {
-    const ids = new Set(hiddenPosts());
+    const ids =
+      new Set(
+        hiddenPosts()
+      );
 
-    ids.add(String(postId));
+    ids.add(
+      String(postId)
+    );
 
     setJSON(
       KEYS.hiddenPosts,
@@ -174,26 +219,37 @@
   }
 
   function isLocallyHidden(postId) {
-    return hiddenPosts().includes(
-      String(postId)
-    );
+    return hiddenPosts()
+      .includes(
+        String(postId)
+      );
   }
 
   // =========================
   // API
   // =========================
 
-  async function api(path, options = {}) {
-    const identity = currentIdentity();
+  async function api(
+    path,
+    options = {}
+  ) {
+    const identity =
+      currentIdentity();
 
     const headers = {
-      Accept: 'application/json',
+      Accept:
+        'application/json',
 
-      'X-DDP-User-ID': identity.id,
+      'X-DDP-User-ID':
+        identity.id,
+
+      'X-DDP-User-Name':
+        identity.name || 'Anonymous',
 
       ...(options.body !== undefined
         ? {
-            'Content-Type': 'application/json'
+            'Content-Type':
+              'application/json'
           }
         : {}),
 
@@ -203,20 +259,24 @@
     let response;
 
     try {
-      response = await fetch(
-        API_BASE + path,
-        {
-          ...options,
-          headers,
-          credentials: 'same-origin'
-        }
-      );
+      response =
+        await fetch(
+          API_BASE + path,
+          {
+            ...options,
+            headers,
+            credentials:
+              'same-origin'
+          }
+        );
     } catch {
-      const error = new Error(
-        'Backend unavailable. Start the Node.js server and try again.'
-      );
+      const error =
+        new Error(
+          'Backend unavailable. Start the Node.js server and try again.'
+        );
 
-      error.code = 'NETWORK_ERROR';
+      error.code =
+        'NETWORK_ERROR';
 
       throw error;
     }
@@ -224,18 +284,21 @@
     let data = {};
 
     try {
-      data = await response.json();
+      data =
+        await response.json();
     } catch {
-      // Server may have returned HTML.
+      // Non-JSON response.
     }
 
     if (!response.ok) {
-      const error = new Error(
-        data.error ||
-        `Request failed (${response.status})`
-      );
+      const error =
+        new Error(
+          data.error ||
+          `Request failed (${response.status})`
+        );
 
-      error.status = response.status;
+      error.status =
+        response.status;
 
       throw error;
     }
@@ -289,13 +352,12 @@
 
     applyAppearance();
 
-    $$('[data-appearance]').forEach(
-      input => {
+    $$('[data-appearance]')
+      .forEach(input => {
         input.checked =
           input.dataset.appearance ===
           value;
-      }
-    );
+      });
   }
 
   // =========================
@@ -307,28 +369,25 @@
       [
         'home',
         '/frontend/pages/home.html',
-        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"/></svg>',
         'Feed'
       ],
-
       [
         'mine',
         '/frontend/pages/myPosts.html',
-        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M120-120v-720h720v720H120Zm600-160H240v60h480v-60Zm-480-60h480v-60H240v60Zm0-140h480v-240H240v240Zm0 200v60-60Zm0-60v-60 60Zm0-140v-240 240Zm0 80v-80 80Zm0 120v-60 60Z"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M120-120v-720h720v720H120Zm600-160H240v60h480v-60Zm-480-60h480v-60H240v60Zm0-140h480v-240H240v240Zm0 200v60-60Zm0-60v-60 60Zm0-140v-240 240Zm0 80v-80 80Zm0 120v-60 60Z"/></svg>',
         'My Posts'
       ],
-
       [
         'saved',
         '/frontend/pages/savedPosts.html',
-        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M160-80v-560q0-33 23.5-56.5T240-720h320q33 0 56.5 23.5T640-640v560L400-200 160-80Zm80-121 160-86 160 86v-439H240v439Zm480-39v-560H280v-80h440q33 0 56.5 23.5T800-800v560h-80ZM240-640h320-320Z"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M160-80v-560q0-33 23.5-56.5T240-720h320q33 0 56.5 23.5T640-640v560L400-200 160-80Zm80-121 160-86 160 86v-439H240v439Zm480-39v-560H280v-80h440q33 0 56.5 23.5T800-800v560h-80ZM240-640h320-320Z"/></svg>',
         'Saved'
       ],
-
       [
         'notif',
         '/frontend/pages/notif-settings/notif.html',
-        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-792q80 20 130 84.5T720-560v280h80v80H160Zm320-300Zm0 420q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80ZM320-280h320v-280q0-66-47-113t-113-47q-66 0-113 47t-47 113v280Z"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-792q80 20 130 84.5T720-560v280h80v80H160Zm320-300Zm0 420q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80ZM320-280h320v-280q0-66-47-113t-113-47q-66 0-113 47t-47 113v280Z"/></svg>',
         'Notif'
       ]
     ];
@@ -353,6 +412,21 @@
                 <span class="navText">
                   ${label}
                 </span>
+
+                ${
+                  id === 'notif'
+                    ? `
+                      <span
+                        class="notificationBadge"
+                        data-notification-badge
+                        hidden
+                      >
+                        0
+                      </span>
+                    `
+                    : ''
+                }
+
               </a>
             `
           )
@@ -365,15 +439,21 @@
   // FILTER POSTS
   // =========================
 
-  function filterPosts(posts, query) {
-    const q = String(query || '')
-      .trim()
-      .toLowerCase();
+  function filterPosts(
+    posts,
+    query
+  ) {
+    const q =
+      String(query || '')
+        .trim()
+        .toLowerCase();
 
     return posts
       .filter(
         post =>
-          !isLocallyHidden(post.id)
+          !isLocallyHidden(
+            post.id
+          )
       )
       .filter(post => {
         const searchable = [
@@ -384,13 +464,19 @@
           .join(' ')
           .toLowerCase();
 
-        return !q ||
-          searchable.includes(q);
+        return (
+          !q ||
+          searchable.includes(q)
+        );
       })
       .sort(
         (a, b) =>
-          new Date(b.createdAt) -
-          new Date(a.createdAt)
+          new Date(
+            b.createdAt
+          ) -
+          new Date(
+            a.createdAt
+          )
       );
   }
 
@@ -398,18 +484,25 @@
   // LOAD POSTS
   // =========================
 
-  async function loadPosts(query = '') {
+  async function loadPosts(
+    query = ''
+  ) {
     try {
       const suffix = query
-        ? `?q=${encodeURIComponent(query)}`
+        ? `?q=${encodeURIComponent(
+            query
+          )}`
         : '';
 
-      const data = await api(
-        `/posts${suffix}`
-      );
+      const data =
+        await api(
+          `/posts${suffix}`
+        );
 
       const posts =
-        Array.isArray(data.posts)
+        Array.isArray(
+          data.posts
+        )
           ? data.posts
           : [];
 
@@ -418,7 +511,8 @@
         query
       );
     } catch (error) {
-      const fallback = localPosts();
+      const fallback =
+        localPosts();
 
       if (fallback.length) {
         return filterPosts(
@@ -450,9 +544,11 @@
   // =========================
 
   function closeActionMenus() {
-    $$('.ddpActionMenu').forEach(
-      menu => menu.remove()
-    );
+    $$('.ddpActionMenu')
+      .forEach(
+        menu =>
+          menu.remove()
+      );
   }
 
   document.addEventListener(
@@ -492,104 +588,95 @@
     }
 
     const menu =
-      document.createElement('div');
+      document.createElement(
+        'div'
+      );
 
     menu.className =
       'ddpActionMenu';
 
-    menu.style.position =
-      'absolute';
+    Object.assign(
+      menu.style,
+      {
+        position: 'absolute',
+        right: '0',
+        top: 'calc(100% + 6px)',
+        zIndex: '1000',
+        minWidth: '160px',
+        padding: '6px',
+        borderRadius: '10px',
+        background:
+          'var(--card-bg, #fff)',
+        border:
+          '1px solid var(--border, #ddd)',
+        boxShadow:
+          '0 8px 24px rgba(0,0,0,.15)'
+      }
+    );
 
-    menu.style.right =
-      '0';
+    actions.forEach(
+      action => {
+        const button =
+          document.createElement(
+            'button'
+          );
 
-    menu.style.top =
-      'calc(100% + 6px)';
+        button.type =
+          'button';
 
-    menu.style.zIndex =
-      '1000';
+        button.textContent =
+          action.label;
 
-    menu.style.minWidth =
-      '160px';
-
-    menu.style.padding =
-      '6px';
-
-    menu.style.borderRadius =
-      '10px';
-
-    menu.style.background =
-      'var(--card-bg, #fff)';
-
-    menu.style.border =
-      '1px solid var(--border, #ddd)';
-
-    menu.style.boxShadow =
-      '0 8px 24px rgba(0,0,0,.15)';
-
-    actions.forEach(action => {
-      const button =
-        document.createElement(
-          'button'
+        Object.assign(
+          button.style,
+          {
+            display: 'block',
+            width: '100%',
+            padding: '10px 12px',
+            border: '0',
+            background:
+              'transparent',
+            textAlign: 'left',
+            cursor: 'pointer'
+          }
         );
 
-      button.type =
-        'button';
+        button.addEventListener(
+          'click',
+          async event => {
+            event.stopPropagation();
 
-      button.textContent =
-        action.label;
+            closeActionMenus();
 
-      button.style.display =
-        'block';
-
-      button.style.width =
-        '100%';
-
-      button.style.padding =
-        '10px 12px';
-
-      button.style.border =
-        '0';
-
-      button.style.background =
-        'transparent';
-
-      button.style.textAlign =
-        'left';
-
-      button.style.cursor =
-        'pointer';
-
-      button.addEventListener(
-        'click',
-        async event => {
-          event.stopPropagation();
-
-          closeActionMenus();
-
-          try {
-            await action.action();
-          } catch (error) {
-            alert(
-              error.message ||
-              'Something went wrong.'
-            );
+            try {
+              await action.action();
+            } catch (error) {
+              alert(
+                error.message ||
+                'Something went wrong.'
+              );
+            }
           }
-        }
-      );
+        );
 
-      menu.appendChild(button);
-    });
+        menu.appendChild(
+          button
+        );
+      }
+    );
 
     if (
-      getComputedStyle(parent)
-        .position === 'static'
+      getComputedStyle(
+        parent
+      ).position === 'static'
     ) {
       parent.style.position =
         'relative';
     }
 
-    parent.appendChild(menu);
+    parent.appendChild(
+      menu
+    );
   }
 
   // =========================
@@ -603,52 +690,41 @@
     closeActionMenus();
 
     const wrapper =
-      document.createElement('div');
+      document.createElement(
+        'div'
+      );
 
     wrapper.className =
       'ddpActionMenu';
 
-    wrapper.style.position =
-      'fixed';
-
-    wrapper.style.left =
-      '50%';
-
-    wrapper.style.top =
-      '50%';
-
-    wrapper.style.transform =
-      'translate(-50%, -50%)';
-
-    wrapper.style.zIndex =
-      '9999';
-
-    wrapper.style.width =
-      'min(90vw, 360px)';
-
-    wrapper.style.maxHeight =
-      '80vh';
-
-    wrapper.style.overflow =
-      'auto';
-
-    wrapper.style.padding =
-      '18px';
-
-    wrapper.style.borderRadius =
-      '14px';
-
-    wrapper.style.background =
-      'var(--card-bg, #fff)';
-
-    wrapper.style.border =
-      '1px solid var(--border, #ddd)';
-
-    wrapper.style.boxShadow =
-      '0 15px 40px rgba(0,0,0,.25)';
+    Object.assign(
+      wrapper.style,
+      {
+        position: 'fixed',
+        left: '50%',
+        top: '50%',
+        transform:
+          'translate(-50%, -50%)',
+        zIndex: '9999',
+        width:
+          'min(90vw, 360px)',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        padding: '18px',
+        borderRadius: '14px',
+        background:
+          'var(--card-bg, #fff)',
+        border:
+          '1px solid var(--border, #ddd)',
+        boxShadow:
+          '0 15px 40px rgba(0,0,0,.25)'
+      }
+    );
 
     const heading =
-      document.createElement('h3');
+      document.createElement(
+        'h3'
+      );
 
     heading.textContent =
       title || 'Report';
@@ -661,7 +737,9 @@
     );
 
     const description =
-      document.createElement('p');
+      document.createElement(
+        'p'
+      );
 
     description.textContent =
       'Choose a reason:';
@@ -683,23 +761,17 @@
         button.textContent =
           reason;
 
-        button.style.display =
-          'block';
-
-        button.style.width =
-          '100%';
-
-        button.style.padding =
-          '11px';
-
-        button.style.margin =
-          '6px 0';
-
-        button.style.borderRadius =
-          '8px';
-
-        button.style.cursor =
-          'pointer';
+        Object.assign(
+          button.style,
+          {
+            display: 'block',
+            width: '100%',
+            padding: '11px',
+            margin: '6px 0',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }
+        );
 
         button.addEventListener(
           'click',
@@ -761,17 +833,15 @@
     cancel.textContent =
       'Cancel';
 
-    cancel.style.display =
-      'block';
-
-    cancel.style.width =
-      '100%';
-
-    cancel.style.padding =
-      '11px';
-
-    cancel.style.marginTop =
-      '10px';
+    Object.assign(
+      cancel.style,
+      {
+        display: 'block',
+        width: '100%',
+        padding: '11px',
+        marginTop: '10px'
+      }
+    );
 
     cancel.addEventListener(
       'click',
@@ -788,17 +858,287 @@
   }
 
   // =========================
-  // COMMENTS HTML
+  // COMMENT HELPERS
   // =========================
+
+  function commentOwnerId(comment) {
+    return (
+      comment?.userId ||
+      comment?.authorId ||
+      comment?.ownerId ||
+      ''
+    );
+  }
+
+  function commentAuthorName(comment) {
+    return (
+      comment?.name ||
+      comment?.authorName ||
+      'Anonymous'
+    );
+  }
+
+  function commentReactionCount(comment) {
+    if (
+      Number.isFinite(
+        Number(
+          comment?.reactionCount
+        )
+      )
+    ) {
+      return Number(
+        comment.reactionCount
+      );
+    }
+
+    if (
+      Array.isArray(
+        comment?.reactions
+      )
+    ) {
+      return comment.reactions.length;
+    }
+
+    return 0;
+  }
+
+  function commentIsReacted(
+    comment
+  ) {
+    const me =
+      currentIdentity();
+
+    if (
+      typeof comment?.reacted ===
+      'boolean'
+    ) {
+      return comment.reacted;
+    }
+
+    return (
+      Array.isArray(
+        comment?.reactions
+      ) &&
+      comment.reactions.includes(
+        me.id
+      )
+    );
+  }
+
+  // =========================
+  // COMMENT HTML
+  // =========================
+
+  function renderComment(
+    post,
+    comment,
+    isReply = false
+  ) {
+    const me =
+      currentIdentity();
+
+    const id =
+      comment?.id || '';
+
+    const owner =
+      commentOwnerId(
+        comment
+      );
+
+    const isMine =
+      String(owner) ===
+      String(me.id);
+
+    const replies =
+      Array.isArray(
+        comment?.replies
+      )
+        ? comment.replies
+        : [];
+
+    const hearted =
+      commentIsReacted(
+        comment
+      );
+
+    const heartCount =
+      commentReactionCount(
+        comment
+      );
+
+    return `
+      <div
+        class="comment ${
+          isReply
+            ? 'commentReply'
+            : ''
+        }"
+        data-comment-id="${escapeHTML(
+          id
+        )}"
+      >
+
+        <div class="commentContent">
+
+          <div class="commentAuthor">
+            ${safeText(
+              commentAuthorName(
+                comment
+              )
+            )}
+          </div>
+
+          <div class="commentText">
+            ${safeMultilineText(
+              comment?.text ||
+              comment?.content ||
+              ''
+            )}
+          </div>
+
+          ${
+            comment?.updatedAt ||
+            comment?.updated_at
+              ? `
+                <small class="muted">
+                  · edited
+                </small>
+              `
+              : ''
+          }
+
+          <div
+            class="commentActions"
+          >
+
+            <button
+              type="button"
+              class="commentHeart ${
+                hearted
+                  ? 'reacted'
+                  : ''
+              }"
+              data-comment-react="${escapeHTML(
+                id
+              )}"
+              data-post-id="${escapeHTML(
+                post.id
+              )}"
+              aria-label="Heart comment"
+            >
+              <span
+                class="commentHeartIcon"
+              >
+                ${hearted
+                  ? '♥'
+                  : '♡'}
+              </span>
+
+              <span>
+                ${heartCount}
+              </span>
+            </button>
+
+            ${
+              !isReply
+                ? `
+                  <button
+                    type="button"
+                    class="replyBtn"
+                    data-reply="${escapeHTML(
+                      id
+                    )}"
+                    data-post-id="${escapeHTML(
+                      post.id
+                    )}"
+                  >
+                    Reply
+                  </button>
+                `
+                : ''
+            }
+
+          </div>
+
+          ${
+            !isReply
+              ? `
+                <form
+                  class="replyForm hidden"
+                  data-reply-form="${escapeHTML(
+                    id
+                  )}"
+                  data-post-id="${escapeHTML(
+                    post.id
+                  )}"
+                >
+
+                  <input
+                    name="reply"
+                    maxlength="300"
+                    placeholder="Write a reply..."
+                    required
+                  >
+
+                  <button
+                    type="submit"
+                  >
+                    Send
+                  </button>
+
+                </form>
+              `
+              : ''
+          }
+
+        </div>
+
+        <button
+          type="button"
+          class="commentMoreBtn"
+          data-comment-more="${escapeHTML(
+            post.id
+          )}"
+          data-comment-id="${escapeHTML(
+            id
+          )}"
+          aria-label="Comment options"
+        >
+          ⋯
+        </button>
+
+        ${
+          replies.length
+            ? `
+              <div
+                class="commentReplies"
+              >
+                ${replies
+                  .map(
+                    reply =>
+                      renderComment(
+                        post,
+                        reply,
+                        true
+                      )
+                  )
+                  .join('')}
+              </div>
+            `
+            : ''
+        }
+
+      </div>
+    `;
+  }
 
   function commentHTML(post) {
     const comments =
-      Array.isArray(post.comments)
+      Array.isArray(
+        post.comments
+      )
         ? post.comments
         : [];
-
-    const me =
-      currentIdentity();
 
     return `
       <div class="comments">
@@ -808,87 +1148,20 @@
           ${
             comments.length
               ? comments
-                  .map(comment => {
-                    const isMine =
-                      comment.userId === me.id ||
-                      comment.authorId === me.id ||
-                      comment.ownerId === me.id;
-
-                    return `
-                      <div
-                        class="comment"
-                        data-comment-id="${escapeHTML(
-                          comment.id || ''
-                        )}"
-                      >
-
-                        <div class="commentContent">
-
-                          <b>
-                            ${safeText(
-                              comment.name ||
-                              comment.authorName ||
-                              'Anonymous'
-                            )}
-                          </b>
-
-                          <span class="commentText">
-                            ${safeText(
-                              comment.text ||
-                              comment.content ||
-                              ''
-                            )}
-                          </span>
-
-                          ${
-                            comment.updatedAt
-                              ? `
-                                <small class="muted">
-                                  · edited
-                                </small>
-                              `
-                              : ''
-                          }
-
-                        </div>
-
-                        <button
-                          type="button"
-                          class="commentMoreBtn"
-                          data-comment-more="${escapeHTML(
-                            post.id
-                          )}"
-                          data-comment-id="${escapeHTML(
-                            comment.id || ''
-                          )}"
-                          aria-label="Comment options"
-                        >
-                          ⋯
-                        </button>
-
-                        ${
-                          isMine
-                            ? `
-                              <span
-                                class="commentOwner"
-                                data-comment-owner="${escapeHTML(
-                                  comment.id || ''
-                                )}"
-                                hidden
-                              ></span>
-                            `
-                            : ''
-                        }
-
-                      </div>
-                    `;
-                  })
+                  .map(
+                    comment =>
+                      renderComment(
+                        post,
+                        comment,
+                        false
+                      )
+                  )
                   .join('')
               : `
-                  <small class="muted">
-                    No comments yet.
-                  </small>
-                `
+                <small class="muted">
+                  No comments yet.
+                </small>
+              `
           }
 
         </div>
@@ -907,7 +1180,9 @@
             required
           >
 
-          <button type="submit">
+          <button
+            type="submit"
+          >
             Send
           </button>
 
@@ -923,7 +1198,9 @@
 
   function pollBody(post) {
     const options =
-      Array.isArray(post.options)
+      Array.isArray(
+        post.options
+      )
         ? post.options
         : [];
 
@@ -953,15 +1230,16 @@
               (option, index) => {
                 const votes =
                   Number(
-                    option.votes || 0
+                    option.votes ||
+                    0
                   );
 
                 const percentage =
                   total
                     ? Math.round(
                         votes /
-                        total *
-                        100
+                          total *
+                          100
                       )
                     : 0;
 
@@ -969,7 +1247,8 @@
                   voted === index;
 
                 const disabled =
-                  voted !== undefined;
+                  voted !==
+                  undefined;
 
                 return `
                   <button
@@ -995,7 +1274,9 @@
                       style="width:${percentage}%"
                     ></span>
 
-                    <span class="pollLabel">
+                    <span
+                      class="pollLabel"
+                    >
                       ${safeText(
                         option.text
                       )}
@@ -1015,7 +1296,11 @@
 
         <small class="pollTotal">
           ${total}
-          vote${total === 1 ? '' : 's'}
+          vote${
+            total === 1
+              ? ''
+              : 's'
+          }
         </small>
 
       </div>
@@ -1032,13 +1317,25 @@
 
     const reacted =
       post.reacted ??
-      (post.reactions || [])
-        .includes(me.id);
+      (
+        Array.isArray(
+          post.reactions
+        ) &&
+        post.reactions.includes(
+          me.id
+        )
+      );
 
     const saved =
       post.saved ??
-      (post.savedBy || [])
-        .includes(me.id);
+      (
+        Array.isArray(
+          post.savedBy
+        ) &&
+        post.savedBy.includes(
+          me.id
+        )
+      );
 
     const isMine =
       post.authorId === me.id ||
@@ -1055,6 +1352,29 @@
         .toUpperCase() ||
       '?';
 
+    const comments =
+      Array.isArray(
+        post.comments
+      )
+        ? post.comments
+        : [];
+
+    const commentCount =
+      post.commentCount ??
+      comments.reduce(
+        (total, comment) =>
+          total +
+          1 +
+          (
+            Array.isArray(
+              comment.replies
+            )
+              ? comment.replies.length
+              : 0
+          ),
+        0
+      );
+
     return `
       <article
         class="feedCard"
@@ -1066,13 +1386,17 @@
         <div class="postHeader">
 
           <div class="avatar">
-            ${escapeHTML(initial)}
+            ${escapeHTML(
+              initial
+            )}
           </div>
 
           <div class="authorMeta">
 
             <b>
-              ${safeText(author)}
+              ${safeText(
+                author
+              )}
             </b>
 
             <small>
@@ -1131,39 +1455,42 @@
           post.type === 'poll'
             ? pollBody(post)
             : `
-                ${
-                  post.content
-                    ? `
-                      <p class="postContent">
-                        ${safeMultilineText(
-                          post.content
-                        )}
-                      </p>
-                    `
-                    : ''
-                }
+              ${
+                post.content
+                  ? `
+                    <p
+                      class="postContent"
+                    >
+                      ${safeMultilineText(
+                        post.content
+                      )}
+                    </p>
+                  `
+                  : ''
+              }
 
-                ${
-                  post.image
-                    ? `
-                      <img
-                        class="postImage"
-                        src="${escapeHTML(
-                          post.image
-                        )}"
-                        alt="Uploaded image"
-                        loading="lazy"
-                      >
-                    `
-                    : ''
-                }
-              `
+              ${
+                post.image
+                  ? `
+                    <img
+                      class="postImage"
+                      src="${escapeHTML(
+                        post.image
+                      )}"
+                      alt="Uploaded image"
+                      loading="lazy"
+                    >
+                  `
+                  : ''
+              }
+            `
         }
 
-        <div class="postActions">
+        <div
+          class="postActions"
+        >
 
           <button
-            id="actions"
             type="button"
             class="${
               reacted
@@ -1181,7 +1508,11 @@
               width="24"
               height="24"
               viewBox="0 0 24 24"
-              fill="none"
+              fill="${
+                reacted
+                  ? 'currentColor'
+                  : 'none'
+              }"
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
@@ -1193,15 +1524,19 @@
             <span>
               ${
                 post.reactionCount ??
-                post.reactions?.length ??
-                0
+                (
+                  Array.isArray(
+                    post.reactions
+                  )
+                    ? post.reactions.length
+                    : 0
+                )
               }
             </span>
 
           </button>
 
           <button
-            id="actions"
             type="button"
             data-toggle-comments="${escapeHTML(
               post.id
@@ -1224,16 +1559,12 @@
             </svg>
 
             <span>
-              ${
-                post.comments?.length ||
-                0
-              }
+              ${commentCount}
             </span>
 
           </button>
 
           <button
-            id="actions"
             type="button"
             class="${
               saved
@@ -1248,9 +1579,9 @@
 
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              height="24px"
+              height="24"
               viewBox="0 -960 960 960"
-              width="24px"
+              width="24"
               fill="currentColor"
             >
               <path d="M160-80v-560q0-33 23.5-56.5T240-720h320q33 0 56.5 23.5T640-640v560L400-200 160-80Zm80-121 160-86 160 86v-439H240v439Zm480-39v-560H280v-80h440q33 0 56.5 23.5T800-800v560h-80ZM240-640h320-320Z"/>
@@ -1281,13 +1612,12 @@
     container,
     error
   ) {
-    const message =
-      error?.message ||
-      'Unable to load posts.';
-
     container.innerHTML = `
       <div class="emptyState">
-        ${escapeHTML(message)}
+        ${escapeHTML(
+          error?.message ||
+          'Unable to load posts.'
+        )}
       </div>
     `;
   }
@@ -1301,7 +1631,9 @@
     filter = 'all',
     query = ''
   ) {
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     container.dataset.filter =
       filter;
@@ -1314,36 +1646,47 @@
 
     try {
       let posts =
-        await loadPosts(query);
+        await loadPosts(
+          query
+        );
 
-      if (filter === 'mine') {
+      if (
+        filter === 'mine'
+      ) {
         const me =
           currentIdentity();
 
         posts =
           posts.filter(
             post =>
-              post.authorId === me.id ||
-              post.userId === me.id ||
-              post.ownerId === me.id
+              post.authorId ===
+                me.id ||
+              post.userId ===
+                me.id ||
+              post.ownerId ===
+                me.id
           );
       }
 
-      if (filter === 'saved') {
+      if (
+        filter === 'saved'
+      ) {
         posts =
           posts.filter(
-            post => post.saved
+            post =>
+              post.saved
           );
       }
 
-      // Store exactly what is rendered.
       container._ddpPosts =
         posts;
 
       container.innerHTML =
         posts.length
           ? posts
-              .map(postCard)
+              .map(
+                postCard
+              )
               .join('')
           : `
               <div class="emptyState">
@@ -1355,9 +1698,13 @@
               </div>
             `;
 
-      bindFeed(container);
+      bindFeed(
+        container
+      );
     } catch (error) {
-      container._ddpPosts = [];
+      container._ddpPosts =
+        [];
+
       renderError(
         container,
         error
@@ -1375,6 +1722,8 @@
       container.dataset.query ||
         ''
     );
+
+    updateNotificationBadge();
   }
 
   // =========================
@@ -1391,7 +1740,9 @@
       posts =
         await loadPosts();
     } catch (error) {
-      alert(error.message);
+      alert(
+        error.message
+      );
       return;
     }
 
@@ -1403,7 +1754,9 @@
       );
 
     if (!post) {
-      alert('Post not found.');
+      alert(
+        'Post not found.'
+      );
       return;
     }
 
@@ -1430,16 +1783,24 @@
         post.topic || ''
       );
 
-    if (topic === null) return;
+    if (topic === null) {
+      return;
+    }
 
-    if (post.type === 'post') {
+    if (
+      post.type === 'post'
+    ) {
       const content =
         prompt(
           'Edit post content:',
           post.content || ''
         );
 
-      if (content === null) return;
+      if (
+        content === null
+      ) {
+        return;
+      }
 
       try {
         await api(
@@ -1448,16 +1809,17 @@
           )}`,
           {
             method: 'PUT',
-            body: JSON.stringify({
-              topic:
-                maskSwearing(
-                  topic.trim()
-                ),
-              content:
-                maskSwearing(
-                  content.trim()
-                )
-            })
+            body:
+              JSON.stringify({
+                topic:
+                  maskSwearing(
+                    topic.trim()
+                  ),
+                content:
+                  maskSwearing(
+                    content.trim()
+                  )
+              })
           }
         );
 
@@ -1465,27 +1827,34 @@
           container
         );
       } catch (error) {
-        alert(error.message);
+        alert(
+          error.message
+        );
       }
 
       return;
     }
 
     const hasVotes =
-      (post.options || [])
-        .some(
-          option =>
-            Number(
-              option.votes || 0
-            ) > 0
-        );
+      (
+        post.options ||
+        []
+      ).some(
+        option =>
+          Number(
+            option.votes ||
+            0
+          ) > 0
+      );
 
     let options =
-      (post.options || [])
-        .map(
-          option =>
-            option.text
-        );
+      (
+        post.options ||
+        []
+      ).map(
+        option =>
+          option.text
+      );
 
     if (!hasVotes) {
       const edited = [];
@@ -1499,7 +1868,9 @@
             option
           );
 
-        if (value === null) {
+        if (
+          value === null
+        ) {
           return;
         }
 
@@ -1510,7 +1881,8 @@
         );
       }
 
-      options = edited;
+      options =
+        edited;
     }
 
     try {
@@ -1520,16 +1892,16 @@
         )}`,
         {
           method: 'PUT',
-          body: JSON.stringify({
-            topic:
-              maskSwearing(
-                topic.trim()
-              ),
-
-            ...(hasVotes
-              ? {}
-              : { options })
-          })
+          body:
+            JSON.stringify({
+              topic:
+                maskSwearing(
+                  topic.trim()
+                ),
+              ...(hasVotes
+                ? {}
+                : { options })
+            })
         }
       );
 
@@ -1537,7 +1909,9 @@
         container
       );
     } catch (error) {
-      alert(error.message);
+      alert(
+        error.message
+      );
     }
   }
 
@@ -1554,7 +1928,9 @@
         'Delete this post? This cannot be undone.'
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       await api(
@@ -1570,153 +1946,14 @@
         container
       );
     } catch (error) {
-      alert(error.message);
+      alert(
+        error.message
+      );
     }
   }
 
   // =========================
-  // EDIT COMMENT
-  // =========================
-
-  async function editComment(
-    postId,
-    commentId,
-    container
-  ) {
-    if (!commentId) {
-      alert(
-        'This comment does not have a valid ID.'
-      );
-      return;
-    }
-
-    const comments =
-      await findPostComments(
-        postId
-      );
-
-    const comment =
-      comments.find(
-        item =>
-          String(item.id) ===
-          String(commentId)
-      );
-
-    if (!comment) {
-      alert(
-        'Comment not found.'
-      );
-      return;
-    }
-
-    const me =
-      currentIdentity();
-
-    const isMine =
-      comment.userId === me.id ||
-      comment.authorId === me.id ||
-      comment.ownerId === me.id;
-
-    if (!isMine) {
-      alert(
-        'You can only edit your own comment.'
-      );
-      return;
-    }
-
-    const oldText =
-      comment.text ||
-      comment.content ||
-      '';
-
-    const text =
-      prompt(
-        'Edit your comment:',
-        oldText
-      );
-
-    if (text === null) return;
-
-    const cleaned =
-      maskSwearing(
-        text.trim()
-      );
-
-    if (!cleaned) {
-      alert(
-        'Comment cannot be empty.'
-      );
-      return;
-    }
-
-    try {
-      await api(
-        `/posts/${encodeURIComponent(
-          postId
-        )}/comments/${encodeURIComponent(
-          commentId
-        )}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify({
-            text: cleaned
-          })
-        }
-      );
-
-      await refreshFeed(
-        container
-      );
-    } catch (error) {
-      alert(error.message);
-    }
-  }
-
-  // =========================
-  // DELETE COMMENT
-  // =========================
-
-  async function deleteComment(
-    postId,
-    commentId,
-    container
-  ) {
-    if (!commentId) {
-      alert(
-        'This comment does not have a valid ID.'
-      );
-      return;
-    }
-
-    const confirmed =
-      confirm(
-        'Delete this comment? This cannot be undone.'
-      );
-
-    if (!confirmed) return;
-
-    try {
-      await api(
-        `/posts/${encodeURIComponent(
-          postId
-        )}/comments/${encodeURIComponent(
-          commentId
-        )}`,
-        {
-          method: 'DELETE'
-        }
-      );
-
-      await refreshFeed(
-        container
-      );
-    } catch (error) {
-      alert(error.message);
-    }
-  }
-
-  // =========================
-  // FIND POST COMMENTS
+  // FIND COMMENTS
   // =========================
 
   async function findPostComments(
@@ -1777,13 +2014,341 @@
   }
 
   // =========================
+  // FIND COMMENT RECURSIVELY
+  // =========================
+
+  function findCommentRecursive(
+    comments,
+    commentId
+  ) {
+    for (
+      const comment of comments || []
+    ) {
+      if (
+        String(comment.id) ===
+        String(commentId)
+      ) {
+        return comment;
+      }
+
+      const found =
+        findCommentRecursive(
+          comment.replies,
+          commentId
+        );
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  // =========================
+  // EDIT COMMENT
+  // =========================
+
+  async function editComment(
+    postId,
+    commentId,
+    container
+  ) {
+    if (!commentId) {
+      alert(
+        'This comment does not have a valid ID.'
+      );
+      return;
+    }
+
+    const comments =
+      await findPostComments(
+        postId
+      );
+
+    const comment =
+      findCommentRecursive(
+        comments,
+        commentId
+      );
+
+    if (!comment) {
+      alert(
+        'Comment not found.'
+      );
+      return;
+    }
+
+    const me =
+      currentIdentity();
+
+    if (
+      String(
+        commentOwnerId(
+          comment
+        )
+      ) !==
+      String(me.id)
+    ) {
+      alert(
+        'You can only edit your own comment.'
+      );
+      return;
+    }
+
+    const oldText =
+      comment.text ||
+      comment.content ||
+      '';
+
+    const text =
+      prompt(
+        'Edit your comment:',
+        oldText
+      );
+
+    if (text === null) {
+      return;
+    }
+
+    const cleaned =
+      maskSwearing(
+        text.trim()
+      );
+
+    if (!cleaned) {
+      alert(
+        'Comment cannot be empty.'
+      );
+      return;
+    }
+
+    try {
+      await api(
+        `/posts/${encodeURIComponent(
+          postId
+        )}/comments/${encodeURIComponent(
+          commentId
+        )}`,
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify({
+              text: cleaned
+            })
+        }
+      );
+
+      await refreshFeed(
+        container
+      );
+    } catch (error) {
+      alert(
+        error.message
+      );
+    }
+  }
+
+  // =========================
+  // DELETE COMMENT
+  // =========================
+
+  async function deleteComment(
+    postId,
+    commentId,
+    container
+  ) {
+    if (!commentId) {
+      alert(
+        'This comment does not have a valid ID.'
+      );
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        'Delete this comment? This cannot be undone.'
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api(
+        `/posts/${encodeURIComponent(
+          postId
+        )}/comments/${encodeURIComponent(
+          commentId
+        )}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      await refreshFeed(
+        container
+      );
+    } catch (error) {
+      alert(
+        error.message
+      );
+    }
+  }
+
+  // =========================
+  // COMMENT HEART
+  // =========================
+
+  async function reactToComment(
+    postId,
+    commentId,
+    button,
+    container
+  ) {
+    if (
+      !postId ||
+      !commentId
+    ) {
+      return;
+    }
+
+    button.disabled =
+      true;
+
+    try {
+      await api(
+        `/posts/${encodeURIComponent(
+          postId
+        )}/comments/${encodeURIComponent(
+          commentId
+        )}/react`,
+        {
+          method: 'POST'
+        }
+      );
+
+      await refreshFeed(
+        container
+      );
+
+      const target =
+        $$(
+          '[data-comments]',
+          container
+        ).find(
+          element =>
+            String(
+              element.dataset.comments
+            ) ===
+            String(postId)
+        );
+
+      target?.classList.remove(
+        'hidden'
+      );
+    } catch (error) {
+      button.disabled =
+        false;
+
+      alert(
+        error.message ||
+        'Unable to react to comment.'
+      );
+    }
+  }
+
+  // =========================
+  // REPLY
+  // =========================
+
+  async function submitReply(
+    postId,
+    parentCommentId,
+    text,
+    container,
+    form
+  ) {
+    if (
+      !postId ||
+      !parentCommentId ||
+      !text
+    ) {
+      return;
+    }
+
+    const submit =
+      $(
+        'button[type=submit]',
+        form
+      );
+
+    if (submit) {
+      submit.disabled =
+        true;
+    }
+
+    try {
+      await api(
+        `/posts/${encodeURIComponent(
+          postId
+        )}/comments/${encodeURIComponent(
+          parentCommentId
+        )}/replies`,
+        {
+          method: 'POST',
+          body:
+            JSON.stringify({
+              text:
+                maskSwearing(
+                  text
+                )
+            })
+        }
+      );
+
+      await refreshFeed(
+        container
+      );
+
+      const target =
+        $$(
+          '[data-comments]',
+          container
+        ).find(
+          element =>
+            String(
+              element.dataset.comments
+            ) ===
+            String(postId)
+        );
+
+      target?.classList.remove(
+        'hidden'
+      );
+    } catch (error) {
+      if (submit) {
+        submit.disabled =
+          false;
+      }
+
+      alert(
+        error.message ||
+        'Unable to send reply.'
+      );
+    }
+  }
+
+  // =========================
   // BIND FEED
   // =========================
 
-  function bindFeed(container) {
+  function bindFeed(
+    container
+  ) {
 
     // =====================
-    // REACT
+    // POST REACTION
     // =====================
 
     $$(
@@ -1934,13 +2499,13 @@
               )}/comments`,
               {
                 method: 'POST',
-
-                body: JSON.stringify({
-                  text:
-                    maskSwearing(
-                      commentText
-                    )
-                })
+                body:
+                  JSON.stringify({
+                    text:
+                      maskSwearing(
+                        commentText
+                      )
+                  })
               }
             );
 
@@ -1982,6 +2547,119 @@
     });
 
     // =====================
+    // COMMENT HEART
+    // =====================
+
+    $$(
+      '[data-comment-react]',
+      container
+    ).forEach(button => {
+      button.onclick =
+        async () => {
+          await reactToComment(
+            button.dataset
+              .postId,
+            button.dataset
+              .commentReact,
+            button,
+            container
+          );
+        };
+    });
+
+    // =====================
+    // SHOW REPLY FORM
+    // =====================
+
+    $$(
+      '[data-reply]',
+      container
+    ).forEach(button => {
+      button.onclick =
+        () => {
+          const commentId =
+            button.dataset
+              .reply;
+
+          const form =
+            $$(
+              '[data-reply-form]',
+              container
+            ).find(
+              element =>
+                String(
+                  element.dataset
+                    .replyForm
+                ) ===
+                String(commentId)
+            );
+
+          if (!form) {
+            return;
+          }
+
+          form.classList.toggle(
+            'hidden'
+          );
+
+          if (
+            !form.classList.contains(
+              'hidden'
+            )
+          ) {
+            $(
+              'input[name=reply]',
+              form
+            )?.focus();
+          }
+        };
+    });
+
+    // =====================
+    // REPLY FORM
+    // =====================
+
+    $$(
+      '[data-reply-form]',
+      container
+    ).forEach(form => {
+      form.onsubmit =
+        async event => {
+          event.preventDefault();
+
+          const postId =
+            form.dataset
+              .postId;
+
+          const commentId =
+            form.dataset
+              .replyForm;
+
+          const input =
+            $(
+              'input[name=reply]',
+              form
+            );
+
+          const text =
+            input?.value.trim() ||
+            '';
+
+          if (!text) {
+            return;
+          }
+
+          await submitReply(
+            postId,
+            commentId,
+            text,
+            container,
+            form
+          );
+        };
+    });
+
+    // =====================
     // POLL VOTE
     // =====================
 
@@ -2001,14 +2679,14 @@
               )}/vote`,
               {
                 method: 'POST',
-
-                body: JSON.stringify({
-                  option:
-                    Number(
-                      button.dataset
-                        .option
-                    )
-                })
+                body:
+                  JSON.stringify({
+                    option:
+                      Number(
+                        button.dataset
+                          .option
+                      )
+                  })
               }
             );
 
@@ -2027,7 +2705,7 @@
     });
 
     // =====================
-    // POST MORE MENU
+    // POST MORE
     // =====================
 
     $$(
@@ -2046,8 +2724,12 @@
               container
             ).find(
               item =>
-                String(item.id) ===
-                String(postId)
+                String(
+                  item.id
+                ) ===
+                String(
+                  postId
+                )
             );
 
           const me =
@@ -2084,24 +2766,26 @@
           } else {
             actions.push({
               label: 'Hide',
-              action: async () => {
-                await api(
-                  `/posts/${encodeURIComponent(
+              action:
+                async () => {
+                  await api(
+                    `/posts/${encodeURIComponent(
+                      postId
+                    )}/hide`,
+                    {
+                      method:
+                        'POST'
+                    }
+                  );
+
+                  hideLocalPost(
                     postId
-                  )}/hide`,
-                  {
-                    method: 'POST'
-                  }
-                );
+                  );
 
-                hideLocalPost(
-                  postId
-                );
-
-                await refreshFeed(
-                  container
-                );
-              }
+                  await refreshFeed(
+                    container
+                  );
+                }
             });
           }
 
@@ -2113,7 +2797,6 @@
                   showReportMenu({
                     title:
                       'Report post',
-
                     submit:
                       async reason => {
                         await api(
@@ -2123,7 +2806,6 @@
                           {
                             method:
                               'POST',
-
                             body:
                               JSON.stringify({
                                 reason
@@ -2146,7 +2828,7 @@
     });
 
     // =====================
-    // COMMENT MORE MENU
+    // COMMENT MORE
     // =====================
 
     $$(
@@ -2172,22 +2854,21 @@
             );
 
           const comment =
-            comments.find(
-              item =>
-                String(item.id) ===
-                String(commentId)
+            findCommentRecursive(
+              comments,
+              commentId
             );
 
           const me =
             currentIdentity();
 
           const isMine =
-            comment?.userId ===
-              me.id ||
-            comment?.authorId ===
-              me.id ||
-            comment?.ownerId ===
-              me.id;
+            String(
+              commentOwnerId(
+                comment
+              )
+            ) ===
+            String(me.id);
 
           const actions = [];
 
@@ -2221,7 +2902,6 @@
                   showReportMenu({
                     title:
                       'Report comment',
-
                     submit:
                       async reason => {
                         await api(
@@ -2233,7 +2913,6 @@
                           {
                             method:
                               'POST',
-
                             body:
                               JSON.stringify({
                                 reason
@@ -2257,7 +2936,7 @@
   }
 
   // =========================
-  // RENDERED DATA HELPERS
+  // RENDERED DATA
   // =========================
 
   function getRenderedPostData(
@@ -2282,8 +2961,12 @@
     const post =
       posts.find(
         item =>
-          String(item.id) ===
-          String(postId)
+          String(
+            item.id
+          ) ===
+          String(
+            postId
+          )
       );
 
     return Array.isArray(
@@ -2301,7 +2984,9 @@
     const form =
       $('#createPostForm');
 
-    if (!form) return;
+    if (!form) {
+      return;
+    }
 
     const input =
       $('#postImage');
@@ -2329,7 +3014,8 @@
             'image/'
           )
         ) {
-          input.value = '';
+          input.value =
+            '';
 
           alert(
             'Please choose an image.'
@@ -2342,7 +3028,8 @@
           file.size >
           2 * 1024 * 1024
         ) {
-          input.value = '';
+          input.value =
+            '';
 
           alert(
             'Please keep the image under 2 MB.'
@@ -2390,7 +3077,10 @@
         if (file) {
           image =
             await new Promise(
-              (resolve, reject) => {
+              (
+                resolve,
+                reject
+              ) => {
                 const reader =
                   new FileReader();
 
@@ -2467,7 +3157,6 @@
             '/posts',
             {
               method: 'POST',
-
               body:
                 JSON.stringify(
                   payload
@@ -2498,7 +3187,9 @@
     const form =
       $('#createPollForm');
 
-    if (!form) return;
+    if (!form) {
+      return;
+    }
 
     const list =
       $('#pollOptions');
@@ -2518,10 +3209,12 @@
         }
 
         $$('.removeOption', list)
-          .forEach(button => {
-            button.disabled =
-              count <= 2;
-          });
+          .forEach(
+            button => {
+              button.disabled =
+                count <= 2;
+            }
+          );
       };
 
     add?.addEventListener(
@@ -2531,7 +3224,11 @@
           $$('.pollEditRow', list)
             .length;
 
-        if (count >= 4) return;
+        if (
+          count >= 4
+        ) {
+          return;
+        }
 
         const row =
           document.createElement(
@@ -2653,16 +3350,13 @@
             '/posts',
             {
               method: 'POST',
-
               body:
                 JSON.stringify({
                   type: 'poll',
-
                   topic:
                     maskSwearing(
                       topic
                     ),
-
                   options
                 })
             }
@@ -2740,7 +3434,10 @@
     const output =
       $('#searches');
 
-    if (!input || !output) {
+    if (
+      !input ||
+      !output
+    ) {
       return;
     }
 
@@ -2770,19 +3467,23 @@
           output.innerHTML =
             posts.length
               ? posts
-                  .map(postCard)
+                  .map(
+                    postCard
+                  )
                   .join('')
               : `
-                  <div class="emptyState">
-                    No results found.
-                  </div>
-                `;
+                <div class="emptyState">
+                  No results found.
+                </div>
+              `;
 
           bindFeed(
             output
           );
         } catch (error) {
-          output._ddpPosts = [];
+          output._ddpPosts =
+            [];
+
           renderError(
             output,
             error
@@ -2799,7 +3500,8 @@
       'keydown',
       event => {
         if (
-          event.key === 'Enter'
+          event.key ===
+          'Enter'
         ) {
           run();
         }
@@ -2820,6 +3522,62 @@
   }
 
   // =========================
+  // NOTIFICATION BADGE
+  // =========================
+
+  async function updateNotificationBadge() {
+    const badges =
+      $$(
+        '[data-notification-badge]'
+      );
+
+    if (!badges.length) {
+      return;
+    }
+
+    try {
+      const response =
+        await api(
+          '/notifications'
+        );
+
+      const notifications =
+        Array.isArray(
+          response.notifications
+        )
+          ? response.notifications
+          : [];
+
+      const unread =
+        response.unreadCount ??
+        notifications.filter(
+          notification =>
+            !(
+              notification.read ||
+              notification.isRead
+            )
+        ).length;
+
+      badges.forEach(
+        badge => {
+          const count =
+            Number(unread) || 0;
+
+          badge.textContent =
+            count > 99
+              ? '99+'
+              : String(count);
+
+          badge.hidden =
+            count <= 0;
+        }
+      );
+    } catch {
+      // Badge is optional.
+    }
+  }
+
+  // =========================
   // NOTIFICATIONS
   // =========================
 
@@ -2827,7 +3585,10 @@
     const output =
       $('#mainNotif');
 
-    if (!output) return;
+    if (!output) {
+      updateNotificationBadge();
+      return;
+    }
 
     try {
       const response =
@@ -2849,10 +3610,15 @@
                 notification => `
                   <article
                     class="notification ${
-                      notification.read
+                      notification.read ||
+                      notification.isRead
                         ? ''
                         : 'unread'
                     }"
+                    data-notification-id="${escapeHTML(
+                      notification.id ||
+                      ''
+                    )}"
                   >
 
                     ${
@@ -2884,10 +3650,10 @@
               )
               .join('')
           : `
-              <div class="emptyState">
-                You are all caught up.
-              </div>
-            `;
+            <div class="emptyState">
+              You are all caught up.
+            </div>
+          `;
 
       await api(
         '/notifications/read',
@@ -2895,6 +3661,9 @@
           method: 'POST'
         }
       );
+
+      updateNotificationBadge();
+
     } catch (error) {
       output.innerHTML = `
         <div class="emptyState">
@@ -2922,7 +3691,8 @@
       renderFeed(
         feed,
         filter,
-        feed.dataset.query || ''
+        feed.dataset.query ||
+          ''
       );
     }
 
@@ -2932,10 +3702,30 @@
     if (nav) {
       nav.innerHTML =
         makeNav(
-          document.body.dataset
-            .nav || 'home'
+          document.body
+            .dataset
+            .nav ||
+          'home'
         );
     }
+
+    setTimeout(
+      updateNotificationBadge,
+      100
+    );
+  }
+
+  // =========================
+  // NOTIFICATION POLLING
+  // =========================
+
+  function startNotificationPolling() {
+    updateNotificationBadge();
+
+    setInterval(
+      updateNotificationBadge,
+      30000
+    );
   }
 
   // =========================
@@ -2952,7 +3742,8 @@
     loadPosts,
     hideLocalPost,
     isLocallyHidden,
-    maskSwearing
+    maskSwearing,
+    updateNotificationBadge
   };
 
   // =========================
@@ -2973,6 +3764,8 @@
     initNotifications();
 
     initHome();
+
+    startNotificationPolling();
   }
 
   if (
