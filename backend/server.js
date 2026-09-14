@@ -95,7 +95,7 @@ app.use(
   })
 );
 
-// Serve frontend files.
+// Serve frontend
 app.use(
   express.static(ROOT, {
     extensions: ['html']
@@ -125,12 +125,14 @@ function getUserId(req) {
 }
 
 function getUserName(req) {
-  return clean(
-    req.headers['x-ddp-user-name'] ||
-    req.headers['x-user-name'] ||
-    'Anonymous',
-    100
-  ) || 'Anonymous';
+  return (
+    clean(
+      req.headers['x-ddp-user-name'] ||
+      req.headers['x-user-name'] ||
+      'Anonymous',
+      100
+    ) || 'Anonymous'
+  );
 }
 
 function fail(
@@ -167,43 +169,153 @@ function isUUID(value) {
 // COMMENT MAPPER
 // ========================================
 
-function mapComment(comment) {
+function mapComment(
+  comment,
+  currentUserId = ''
+) {
   if (!comment) {
     return null;
   }
 
+  const reactions =
+    Array.isArray(
+      comment.reactions
+    )
+      ? comment.reactions
+      : [];
+
+  const replies =
+    Array.isArray(
+      comment.replies
+    )
+      ? comment.replies
+      : [];
+
   return {
-    id: comment.id,
+    id:
+      comment.id,
+
+    postId:
+      comment.post_id || '',
+
+    parentId:
+      comment.parent_id || null,
+
     authorId:
       comment.author_id ??
       comment.user_id ??
       '',
+
     name:
       comment.author_name ??
       comment.name ??
       'Anonymous',
+
     text:
       comment.text ??
       comment.content ??
       '',
+
     createdAt:
       comment.created_at,
+
     updatedAt:
-      comment.updated_at
+      comment.updated_at,
+
+    reactions:
+      reactions
+        .map(item =>
+          item.user_id
+        )
+        .filter(Boolean),
+
+    reactionCount:
+      reactions.length,
+
+    reacted:
+      reactions.includes(
+        currentUserId
+      ),
+
+    replies:
+      replies
+        .map(reply =>
+          mapComment(
+            reply,
+            currentUserId
+          )
+        )
+        .filter(Boolean)
   };
+}
+
+// ========================================
+// BUILD COMMENT TREE
+// ========================================
+
+function buildCommentTree(
+  comments,
+  currentUserId
+) {
+  const rows =
+    Array.isArray(comments)
+      ? comments
+      : [];
+
+  const mapped =
+    rows
+      .map(comment =>
+        mapComment(
+          {
+            ...comment,
+            replies: []
+          },
+          currentUserId
+        )
+      )
+      .filter(Boolean);
+
+  const byId = new Map();
+
+  mapped.forEach(comment => {
+    byId.set(
+      comment.id,
+      comment
+    );
+  });
+
+  const roots = [];
+
+  mapped.forEach(comment => {
+    if (
+      comment.parentId &&
+      byId.has(comment.parentId)
+    ) {
+      byId
+        .get(comment.parentId)
+        .replies
+        .push(comment);
+    } else {
+      roots.push(comment);
+    }
+  });
+
+  return roots;
 }
 
 // ========================================
 // POST MAPPER
 // ========================================
 
-function mapPost(post, currentUserId) {
+function mapPost(
+  post,
+  currentUserId
+) {
   const comments =
-    Array.isArray(post.comments)
-      ? post.comments
-          .map(mapComment)
-          .filter(Boolean)
-      : [];
+    buildCommentTree(
+      post.comments || [],
+      currentUserId
+    );
 
   const reactions =
     Array.isArray(post.reactions)
@@ -268,11 +380,9 @@ function mapPost(post, currentUserId) {
     }
   });
 
-  const reactionCount =
-    reactions.length;
-
   return {
-    id: post.id,
+    id:
+      post.id,
 
     type:
       post.type || 'post',
@@ -305,7 +415,8 @@ function mapPost(post, currentUserId) {
 
     reactions,
 
-    reactionCount,
+    reactionCount:
+      reactions.length,
 
     reacted:
       reactions.includes(
@@ -331,6 +442,7 @@ function mapPost(post, currentUserId) {
 async function createNotification({
   userId,
   actorId,
+  actorName,
   type,
   postId,
   commentId,
@@ -348,19 +460,40 @@ async function createNotification({
     await supabase
       .from('notifications')
       .insert({
-        id: uid(),
-        user_id: userId,
+        id:
+          uid(),
+
+        user_id:
+          userId,
+
         actor_id:
           actorId || null,
+
+        actor_name:
+          clean(
+            actorName ||
+              'Anonymous',
+            100
+          ),
+
         type:
-          type || 'activity',
+          type ||
+          'activity',
+
         post_id:
           postId || null,
+
         comment_id:
           commentId || null,
+
         message:
-          clean(message, 500),
-        read: false
+          clean(
+            message,
+            500
+          ),
+
+        read:
+          false
       });
 
   if (error) {
@@ -370,6 +503,47 @@ async function createNotification({
     );
   }
 }
+
+// ========================================
+// POST SELECT
+// ========================================
+
+const POST_SELECT = `
+  id,
+  type,
+  topic,
+  content,
+  image,
+  author_id,
+  author_name,
+  created_at,
+  updated_at,
+  options,
+  hidden,
+  comments:comments(
+    id,
+    post_id,
+    parent_id,
+    author_id,
+    author_name,
+    text,
+    created_at,
+    updated_at,
+    reactions:comment_reactions(
+      user_id
+    )
+  ),
+  reactions:post_reactions(
+    user_id
+  ),
+  saves:post_saves(
+    user_id
+  ),
+  votes:poll_votes(
+    user_id,
+    option_index
+  )
+`;
 
 // ========================================
 // GET POSTS
@@ -382,39 +556,13 @@ async function getPosts(
   let request =
     supabase
       .from('posts')
-      .select(`
-        id,
-        type,
-        topic,
-        content,
-        image,
-        author_id,
-        author_name,
-        created_at,
-        updated_at,
-        options,
-        hidden,
-        comments:comments(
-          id,
-          post_id,
-          author_id,
-          author_name,
-          text,
-          created_at,
-          updated_at
-        ),
-        reactions:post_reactions(
-          user_id
-        ),
-        saves:post_saves(
-          user_id
-        ),
-        votes:poll_votes(
-          user_id,
-          option_index
-        )
-      `)
-      .eq('hidden', false)
+      .select(
+        POST_SELECT
+      )
+      .eq(
+        'hidden',
+        false
+      )
       .order(
         'created_at',
         {
@@ -423,15 +571,23 @@ async function getPosts(
       );
 
   const q =
-    clean(query, 100);
+    clean(
+      query,
+      100
+    );
 
   if (q) {
     const escaped =
       q
-        .replace(/[%_]/g, char =>
-          `\\${char}`
+        .replace(
+          /[%_]/g,
+          char =>
+            `\\${char}`
         )
-        .replace(/,/g, ' ');
+        .replace(
+          /,/g,
+          ' '
+        );
 
     request =
       request.or(
@@ -442,7 +598,8 @@ async function getPosts(
   const {
     data,
     error
-  } = await request;
+  } =
+    await request;
 
   if (error) {
     throw error;
@@ -468,8 +625,12 @@ app.get(
   '/api/health',
   (req, res) => {
     res.json({
-      ok: !configError,
-      service: 'DDP backend',
+      ok:
+        !configError,
+
+      service:
+        'DDP backend',
+
       database:
         !configError
           ? 'configured'
@@ -537,43 +698,17 @@ app.get(
       } =
         await supabase
           .from('posts')
-          .select(`
-            id,
-            type,
-            topic,
-            content,
-            image,
-            author_id,
-            author_name,
-            created_at,
-            updated_at,
-            options,
-            hidden,
-            comments:comments(
-              id,
-              post_id,
-              author_id,
-              author_name,
-              text,
-              created_at,
-              updated_at
-            ),
-            reactions:post_reactions(
-              user_id
-            ),
-            saves:post_saves(
-              user_id
-            ),
-            votes:poll_votes(
-              user_id,
-              option_index
-            )
-          `)
+          .select(
+            POST_SELECT
+          )
           .eq(
             'id',
             req.params.postId
           )
-          .eq('hidden', false)
+          .eq(
+            'hidden',
+            false
+          )
           .maybeSingle();
 
       if (error) {
@@ -589,10 +724,11 @@ app.get(
       }
 
       res.json({
-        post: mapPost(
-          data,
-          getUserId(req)
-        )
+        post:
+          mapPost(
+            data,
+            getUserId(req)
+          )
       });
     } catch (error) {
       console.error(
@@ -631,7 +767,8 @@ app.post(
         getUserName(req);
 
       const type =
-        req.body.type === 'poll'
+        req.body.type ===
+        'poll'
           ? 'poll'
           : 'post';
 
@@ -669,7 +806,9 @@ app.post(
 
       let options = [];
 
-      if (type === 'poll') {
+      if (
+        type === 'poll'
+      ) {
         if (
           !Array.isArray(
             req.body.options
@@ -685,7 +824,10 @@ app.post(
         options =
           req.body.options
             .map(option =>
-              clean(option, 100)
+              clean(
+                option,
+                100
+              )
             )
             .filter(Boolean);
 
@@ -702,8 +844,9 @@ app.post(
 
         const unique =
           new Set(
-            options.map(option =>
-              option.toLowerCase()
+            options.map(
+              option =>
+                option.toLowerCase()
             )
           );
 
@@ -720,23 +863,33 @@ app.post(
       }
 
       const row = {
-        id: uid(),
+        id:
+          uid(),
+
         type,
+
         topic,
+
         content:
           type === 'post'
             ? content
             : '',
+
         image,
+
         author_id:
           userId,
+
         author_name:
           userName,
+
         options:
           type === 'poll'
             ? options
             : [],
-        hidden: false
+
+        hidden:
+          false
       };
 
       const {
@@ -766,16 +919,25 @@ app.post(
       }
 
       res.status(201).json({
-        post: mapPost(
-          {
-            ...data,
-            comments: [],
-            reactions: [],
-            saves: [],
-            votes: []
-          },
-          userId
-        )
+        post:
+          mapPost(
+            {
+              ...data,
+
+              comments:
+                [],
+
+              reactions:
+                [],
+
+              saves:
+                [],
+
+              votes:
+                []
+            },
+            userId
+          )
       });
     } catch (error) {
       console.error(
@@ -894,7 +1056,9 @@ app.put(
           error: voteError
         } =
           await supabase
-            .from('poll_votes')
+            .from(
+              'poll_votes'
+            )
             .select('id')
             .eq(
               'post_id',
@@ -922,7 +1086,10 @@ app.put(
         const options =
           req.body.options
             .map(option =>
-              clean(option, 100)
+              clean(
+                option,
+                100
+              )
             )
             .filter(Boolean);
 
@@ -939,8 +1106,9 @@ app.put(
 
         if (
           new Set(
-            options.map(option =>
-              option.toLowerCase()
+            options.map(
+              option =>
+                option.toLowerCase()
             )
           ).size !==
           options.length
@@ -987,16 +1155,25 @@ app.put(
       }
 
       res.json({
-        post: mapPost(
-          {
-            ...data,
-            comments: [],
-            reactions: [],
-            saves: [],
-            votes: []
-          },
-          userId
-        )
+        post:
+          mapPost(
+            {
+              ...data,
+
+              comments:
+                [],
+
+              reactions:
+                [],
+
+              saves:
+                [],
+
+              votes:
+                []
+            },
+            userId
+          )
       });
     } catch (error) {
       console.error(
@@ -1085,7 +1262,8 @@ app.delete(
       }
 
       res.json({
-        success: true
+        success:
+          true
       });
     } catch (error) {
       console.error(
@@ -1126,11 +1304,15 @@ app.get(
           .select(`
             id,
             post_id,
+            parent_id,
             author_id,
             author_name,
             text,
             created_at,
-            updated_at
+            updated_at,
+            reactions:comment_reactions(
+              user_id
+            )
           `)
           .eq(
             'post_id',
@@ -1139,7 +1321,8 @@ app.get(
           .order(
             'created_at',
             {
-              ascending: true
+              ascending:
+                true
             }
           );
 
@@ -1149,8 +1332,10 @@ app.get(
 
       res.json({
         comments:
-          (data || [])
-            .map(mapComment)
+          buildCommentTree(
+            data || [],
+            getUserId(req)
+          )
       });
     } catch (error) {
       console.error(
@@ -1236,18 +1421,27 @@ app.post(
         await supabase
           .from('comments')
           .insert({
-            id: uid(),
+            id:
+              uid(),
+
             post_id:
               req.params.postId,
+
+            parent_id:
+              null,
+
             author_id:
               userId,
+
             author_name:
               userName,
+
             text
           })
           .select(`
             id,
             post_id,
+            parent_id,
             author_id,
             author_name,
             text,
@@ -1263,21 +1457,32 @@ app.post(
       await createNotification({
         userId:
           post.author_id,
+
         actorId:
           userId,
+
+        actorName:
+          userName,
+
         type:
           'comment',
+
         postId:
           req.params.postId,
+
         commentId:
           data.id,
+
         message:
           `${userName} commented on your post.`
       });
 
       res.status(201).json({
         comment:
-          mapComment(data)
+          mapComment(
+            data,
+            userId
+          )
       });
     } catch (error) {
       console.error(
@@ -1290,6 +1495,175 @@ app.post(
         500,
         error.message ||
           'Unable to create comment.'
+      );
+    }
+  }
+);
+
+// ========================================
+// CREATE REPLY
+// ========================================
+
+app.post(
+  '/api/posts/:postId/comments/:commentId/replies',
+  async (req, res) => {
+    if (
+      !requireSupabase(res)
+    ) {
+      return;
+    }
+
+    try {
+      const userId =
+        getUserId(req);
+
+      const userName =
+        getUserName(req);
+
+      const postId =
+        req.params.postId;
+
+      const parentCommentId =
+        req.params.commentId;
+
+      const text =
+        clean(
+          req.body.text,
+          300
+        );
+
+      if (!text) {
+        return fail(
+          res,
+          400,
+          'Reply cannot be empty.'
+        );
+      }
+
+      const {
+        data: parentComment,
+        error: parentError
+      } =
+        await supabase
+          .from('comments')
+          .select(`
+            id,
+            post_id,
+            author_id,
+            author_name
+          `)
+          .eq(
+            'id',
+            parentCommentId
+          )
+          .maybeSingle();
+
+      if (parentError) {
+        throw parentError;
+      }
+
+      if (!parentComment) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      if (
+        String(
+          parentComment.post_id
+        ) !==
+        String(postId)
+      ) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from('comments')
+          .insert({
+            id:
+              uid(),
+
+            post_id:
+              postId,
+
+            parent_id:
+              parentCommentId,
+
+            author_id:
+              userId,
+
+            author_name:
+              userName,
+
+            text
+          })
+          .select(`
+            id,
+            post_id,
+            parent_id,
+            author_id,
+            author_name,
+            text,
+            created_at,
+            updated_at
+          `)
+          .single();
+
+      if (error) {
+        throw error;
+      }
+
+      await createNotification({
+        userId:
+          parentComment.author_id,
+
+        actorId:
+          userId,
+
+        actorName:
+          userName,
+
+        type:
+          'reply',
+
+        postId:
+          postId,
+
+        commentId:
+          data.id,
+
+        message:
+          `${userName} replied to your comment.`
+      });
+
+      res.status(201).json({
+        comment:
+          mapComment(
+            data,
+            userId
+          )
+      });
+    } catch (error) {
+      console.error(
+        'POST reply:',
+        error
+      );
+
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to create reply.'
       );
     }
   }
@@ -1311,6 +1685,7 @@ async function findComment(
       .select(`
         id,
         post_id,
+        parent_id,
         author_id,
         author_name,
         text,
@@ -1418,6 +1793,7 @@ async function updateCommentHandler(
         .select(`
           id,
           post_id,
+          parent_id,
           author_id,
           author_name,
           text,
@@ -1432,7 +1808,10 @@ async function updateCommentHandler(
 
     res.json({
       comment:
-        mapComment(data)
+        mapComment(
+          data,
+          userId
+        )
     });
   } catch (error) {
     console.error(
@@ -1488,7 +1867,7 @@ async function deleteCommentHandler(
         String(
           req.params.postId
         )
-    ) {
+      ) {
       return fail(
         res,
         404,
@@ -1523,7 +1902,8 @@ async function deleteCommentHandler(
     }
 
     res.json({
-      success: true
+      success:
+        true
     });
   } catch (error) {
     console.error(
@@ -1544,7 +1924,6 @@ async function deleteCommentHandler(
 // COMMENT ROUTES
 // ========================================
 
-// New routes used by app.js.
 app.put(
   '/api/posts/:postId/comments/:commentId',
   updateCommentHandler
@@ -1555,7 +1934,7 @@ app.delete(
   deleteCommentHandler
 );
 
-// Legacy routes kept for compatibility.
+// Legacy routes
 app.put(
   '/api/comments/:commentId',
   updateCommentHandler
@@ -1621,9 +2000,12 @@ async function toggleRelation({
     await supabase
       .from(table)
       .insert({
-        id: uid(),
+        id:
+          uid(),
+
         post_id:
           postId,
+
         user_id:
           userId
       });
@@ -1636,7 +2018,7 @@ async function toggleRelation({
 }
 
 // ========================================
-// REACTION
+// POST REACTION
 // ========================================
 
 app.post(
@@ -1652,14 +2034,70 @@ app.post(
       const userId =
         getUserId(req);
 
+      const userName =
+        getUserName(req);
+
+      const {
+        data: post,
+        error: postError
+      } =
+        await supabase
+          .from('posts')
+          .select(`
+            id,
+            author_id,
+            topic
+          `)
+          .eq(
+            'id',
+            req.params.postId
+          )
+          .maybeSingle();
+
+      if (postError) {
+        throw postError;
+      }
+
+      if (!post) {
+        return fail(
+          res,
+          404,
+          'Post not found.'
+        );
+      }
+
       const reacted =
         await toggleRelation({
           table:
             'post_reactions',
+
           postId:
             req.params.postId,
+
           userId
         });
+
+      if (reacted) {
+        await createNotification({
+          userId:
+            post.author_id,
+
+          actorId:
+            userId,
+
+          actorName:
+            userName,
+
+          type:
+            'reaction',
+
+          postId:
+            req.params.postId,
+
+          message:
+            `${userName} liked your post.`
+        });
+      }
 
       res.json({
         reacted
@@ -1675,6 +2113,221 @@ app.post(
         500,
         error.message ||
           'Unable to react to post.'
+      );
+    }
+  }
+);
+
+// ========================================
+// COMMENT / REPLY REACTION
+// ========================================
+
+app.post(
+  '/api/posts/:postId/comments/:commentId/react',
+  async (req, res) => {
+    if (
+      !requireSupabase(res)
+    ) {
+      return;
+    }
+
+    try {
+      const userId =
+        getUserId(req);
+
+      const userName =
+        getUserName(req);
+
+      const postId =
+        req.params.postId;
+
+      const commentId =
+        req.params.commentId;
+
+      const {
+        data: comment,
+        error: commentError
+      } =
+        await supabase
+          .from('comments')
+          .select(`
+            id,
+            post_id,
+            parent_id,
+            author_id,
+            author_name
+          `)
+          .eq(
+            'id',
+            commentId
+          )
+          .maybeSingle();
+
+      if (commentError) {
+        throw commentError;
+      }
+
+      if (!comment) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      if (
+        String(
+          comment.post_id
+        ) !==
+        String(postId)
+      ) {
+        return fail(
+          res,
+          404,
+          'Comment not found.'
+        );
+      }
+
+      const {
+        data: existing,
+        error: existingError
+      } =
+        await supabase
+          .from(
+            'comment_reactions'
+          )
+          .select('id')
+          .eq(
+            'comment_id',
+            commentId
+          )
+          .eq(
+            'user_id',
+            userId
+          )
+          .maybeSingle();
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      let reacted;
+
+      if (existing) {
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'comment_reactions'
+            )
+            .delete()
+            .eq(
+              'id',
+              existing.id
+            );
+
+        if (error) {
+          throw error;
+        }
+
+        reacted =
+          false;
+      } else {
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'comment_reactions'
+            )
+            .insert({
+              id:
+                uid(),
+
+              comment_id:
+                commentId,
+
+              user_id:
+                userId
+            });
+
+        if (error) {
+          throw error;
+        }
+
+        reacted =
+          true;
+
+        await createNotification({
+          userId:
+            comment.author_id,
+
+          actorId:
+            userId,
+
+          actorName:
+            userName,
+
+          type:
+            'comment_reaction',
+
+          postId:
+            postId,
+
+          commentId:
+            commentId,
+
+          message:
+            `${userName} liked your comment.`
+        });
+      }
+
+      const {
+        count,
+        error: countError
+      } =
+        await supabase
+          .from(
+            'comment_reactions'
+          )
+          .select(
+            'id',
+            {
+              count:
+                'exact',
+              head:
+                true
+            }
+          )
+          .eq(
+            'comment_id',
+            commentId
+          );
+
+      if (countError) {
+        throw countError;
+      }
+
+      res.json({
+        reacted,
+
+        reactionCount:
+          Number(
+            count || 0
+          )
+      });
+    } catch (error) {
+      console.error(
+        'Comment reaction:',
+        error
+      );
+
+      fail(
+        res,
+        500,
+        error.message ||
+          'Unable to react to comment.'
       );
     }
   }
@@ -1701,8 +2354,10 @@ app.post(
         await toggleRelation({
           table:
             'post_saves',
+
           postId:
             req.params.postId,
+
           userId
         });
 
@@ -1789,7 +2444,8 @@ app.post(
       }
 
       if (
-        post.type !== 'poll'
+        post.type !==
+        'poll'
       ) {
         return fail(
           res,
@@ -1821,7 +2477,9 @@ app.post(
         error: existingError
       } =
         await supabase
-          .from('poll_votes')
+          .from(
+            'poll_votes'
+          )
           .select('id')
           .eq(
             'post_id',
@@ -1849,13 +2507,19 @@ app.post(
         error
       } =
         await supabase
-          .from('poll_votes')
+          .from(
+            'poll_votes'
+          )
           .insert({
-            id: uid(),
+            id:
+              uid(),
+
             post_id:
               req.params.postId,
+
             user_id:
               userId,
+
             option_index:
               optionIndex
           });
@@ -1865,7 +2529,9 @@ app.post(
       }
 
       res.json({
-        voted: true,
+        voted:
+          true,
+
         option:
           optionIndex
       });
@@ -1892,10 +2558,9 @@ app.post(
 app.post(
   '/api/posts/:postId/hide',
   async (req, res) => {
-    // Hide is intentionally local to
-    // the current user's browser.
     res.json({
-      hidden: true
+      hidden:
+        true
     });
   }
 );
@@ -1964,13 +2629,18 @@ app.post(
         await supabase
           .from('reports')
           .insert({
-            id: uid(),
+            id:
+              uid(),
+
             post_id:
               req.params.postId,
+
             comment_id:
               null,
+
             reporter_id:
               userId,
+
             reason
           });
 
@@ -1979,7 +2649,8 @@ app.post(
       }
 
       res.json({
-        reported: true
+        reported:
+          true
       });
     } catch (error) {
       console.error(
@@ -2062,13 +2733,18 @@ app.post(
         await supabase
           .from('reports')
           .insert({
-            id: uid(),
+            id:
+              uid(),
+
             post_id:
               req.params.postId,
+
             comment_id:
               req.params.commentId,
+
             reporter_id:
               userId,
+
             reason
           });
 
@@ -2077,7 +2753,8 @@ app.post(
       }
 
       res.json({
-        reported: true
+        reported:
+          true
       });
     } catch (error) {
       console.error(
@@ -2096,7 +2773,7 @@ app.post(
 );
 
 // ========================================
-// NOTIFICATIONS
+// GET NOTIFICATIONS
 // ========================================
 
 app.get(
@@ -2117,11 +2794,14 @@ app.get(
         error
       } =
         await supabase
-          .from('notifications')
+          .from(
+            'notifications'
+          )
           .select(`
             id,
             user_id,
             actor_id,
+            actor_name,
             type,
             post_id,
             comment_id,
@@ -2136,7 +2816,8 @@ app.get(
           .order(
             'created_at',
             {
-              ascending: false
+              ascending:
+                false
             }
           )
           .limit(100);
@@ -2146,7 +2827,9 @@ app.get(
       }
 
       const notifications =
-        (data || []).map(
+        (
+          data || []
+        ).map(
           item => ({
             id:
               item.id,
@@ -2156,6 +2839,10 @@ app.get(
 
             actorId:
               item.actor_id,
+
+            actorName:
+              item.actor_name ||
+              'Anonymous',
 
             type:
               item.type,
@@ -2219,9 +2906,12 @@ app.post(
         error
       } =
         await supabase
-          .from('notifications')
+          .from(
+            'notifications'
+          )
           .update({
-            read: true
+            read:
+              true
           })
           .eq(
             'user_id',
@@ -2237,7 +2927,8 @@ app.post(
       }
 
       res.json({
-        success: true
+        success:
+          true
       });
     } catch (error) {
       console.error(
